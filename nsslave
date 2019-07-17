@@ -1,0 +1,163 @@
+#!/bin/sh
+#-
+# Copyright (c) 2006-2012 Parker Lee Ranney TTEE
+# Copyright (c) 2017-2019 Devin Teske <dteske@FreeBSD.org>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+############################################################ IDENT(1)
+#
+# $Title: Distributed bind9 client for applying nsadmin changes $
+# $Id: nsslave,v 1.3 2012/05/10 01:15:04 root Exp root $
+# $Copyright: 2017-2019 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsslave 2019-07-16 18:44:24 -0700 freebsdfrau $
+#
+############################################################ INFORMATION
+#
+# nsslave -- Update Bind's installation on the slave NS server. See
+# 	nsadmin on the master server for details.
+#
+# --------------------------------------------------------------------
+# Notes:
+# 	- Requires nsslave-var.inc to operate.
+# 	- Requires user 'cm' and the appropriate .ssh/authorized_keys2
+# 	  file.
+# 	- User 'cm' must be able to 'sudo /usr/local/bin/nsslave'
+# 	  without a password.
+# --------------------------------------------------------------------
+# History:
+# 	Jul 2019: Release 2.1
+# 		- Initial public release.
+# 	Jul 2018: Release 2.0
+# 		- Major rewrite and code cleanup.
+# 	Jun 2017: Release 1.1
+# 		- Ported to FreeBSD.
+# 	Jul 2006: Release 1.0
+# 		- Update files locally on the slave.
+#
+############################################################ INCLUDES
+
+progdir="${0%/*}" # Program directory
+
+. "$progdir/nsslave-var.inc" || exit
+
+############################################################ FUNCTIONS
+
+# msg text ...
+#
+# Provide a supplied message to the user and the log file.
+#
+msg()
+{
+	logger -p user.info -t Info "$*"
+	awk 'sub(/^\\/,"")||1' <<-EOF
+
+	\		$*
+
+	EOF
+}
+
+# sigquit
+#
+# Process a set of commands when a signal is caught by trap.
+#
+sigquit()
+{
+	cd "$tmp"
+	rm -rf *
+}
+
+############################################################ MAIN
+
+umask 0022
+trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
+cd "$tmp"
+
+msg "Unpacking zone tarball: $( date )"
+tar xvzf zone.tgz 2>&1 | while read line; do
+	echo "		$line"
+done
+rm -f zone.tgz
+
+msg "Changing ownership and permissions: $( date )"
+chown -R "$owner:$group" $views
+chmod -R g-w $views
+
+msg "Backing up zone files: $( date )"
+for view in $views; do
+	for file in $( find "$view" -type f ); do
+		res=$( echo "$file" | sed -e 's/\(.*\/\)\(.*\)/\1.bak-\2/' )
+		cp "$nameddir/$file" "$nameddir/$res"
+	done
+done
+
+msg "Moving files to $nameddir: $( date )"
+for view in $views; do
+	find "$view" -type f -exec mv {} "$nameddir/{}" \;
+done
+
+msg "Restarting named:$( date )"
+printf "\t\t"
+service named reload || pkill -1 named
+sleep 1
+if ! pgrep named > /dev/null; then
+	msg "ERROR: named is not running after reload: $( date )"
+
+	msg "ERROR: attempting manual restart: $( date )"
+	service named start
+	if pgrep named > /dev/null; then
+		msg "Manual restart succeeded: $( date )"
+		exit $SUCCESS
+	fi
+
+	msg "ERROR: manual restart failed: $( date )"
+	msg "ERROR: attempting to roll-back: $( date )"
+
+	cwd="$PWD"
+	cd "$nameddir"
+	for view in $views; do
+		for file in $( find "$view" -name ".bak-*" ); do
+			res=$( echo "$file" | sed -e s/.bak-// )
+			mv "$file" "$res"
+		done
+	done
+
+	service named start
+	if pgrep named > /dev/null; then
+		msg "Roll-back succeeded: $( date )"
+		update=0
+		cd "$cwd"
+		exit $FAILURE
+	fi
+
+	echo "$USER: $( date )" |
+		mail -s "nsadmin: roll-back failed" "$critical"
+	msg "FATAL: roll-back failed ... giving up"
+	exit $FAILURE
+fi
+
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################

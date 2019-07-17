@@ -1,0 +1,277 @@
+#!/bin/sh
+#-
+# Copyright (c) 2006-2013 Parker Lee Ranney TTEE
+# Copyright (c) 2017-2019 Devin Teske <dteske@FreeBSD.org>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+############################################################ IDENT(1)
+#
+# $Title: Distributed bind9 administration and management tool $
+# $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
+# $Copyright: 2017-2019 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsadmin 2019-07-16 18:44:24 -0700 freebsdfrau $
+#
+############################################################ INFORMATION
+#
+# nsadmin -- Update Bind's installation on the master NS server. RCS
+# 	is used for file history. All updates will be sent out as an
+# 	email to the appropriate admin address. A lock is kept during
+# 	the run of this program to prevent conflicting updates.
+#
+# --------------------------------------------------------------------
+# Notes:
+# 	- Requires nsadmin-{edit,gen,op,var,zone}.inc on the master
+# 	  Bind server to operate.
+# 	- Requires nsslave and nsslave-var.inc on the slave Bind
+# 	  servers to operate.
+# 	- User 'cm' and the authorized_keys2 file for that user must
+# 	  be installed on all slave Bind servers. The 'cm' user account
+# 	  and ID file must be on the server with this script.
+# 	- User 'cm' must be able to remotely execute via SSH the
+# 	  following command:
+# 		sudo /usr/local/bin/nsslave
+# 	  Without password on the slave Bind servers.
+# 	- Users must be placed in the DNSOPS group in sudoers as a
+# 	  result of the commands that require root access.
+# 	- Users must also belong to the "bind" group in /etc/group to
+# 	  edit the files.
+# --------------------------------------------------------------------
+# History:
+# 	Jul 2019: Release 3.1
+# 		- Initial Public release.
+# 		- Enable restriction to prevent anonymous root access.
+# 		- Add secondary variable to `nsadmin-var.inc'.
+# 		- Fix hard-coded primary/secondary in `nsadmin-gen.inc'.
+# 	Jul 2018: Release 3.0
+# 		- Major rewrite and code cleanup.
+# 		- Improved error checking of zone files.
+# 		- Support IPv6 AAAA records.
+# 	Jul 2018: Release 2.6
+# 		- Fix bug preventing some reverse entries from being created
+# 	Jul 2018: Release 2.5
+# 		- Fix bug preventing reverse lookup of A records ending in
+# 		  .0 or .255
+# 	Jul 2017: Release 2.4
+# 		- Ask the user for a message to describe changes.
+# 		- Only allow one instance of nsadmin at a time.
+# 	Jun 2017: Release 2.3
+# 		- Add `-n slaves' syntax for selecting a subset of slaves.
+# 		- Ported to FreeBSD.
+# 	Mar 2010: Release 2.2
+# 		- Fixed comments.
+# 	Jul 2006: Release 2.1
+# 		- Modified to migrate zones manually as IXFR and AXFR
+# 		  are not reliable.
+# 	Jun 2006: Release 2.0
+# 		- Major rewrite and creation of includes.
+# 		- Syntax checking.
+# 		- Update only the rev maps with a changed IP.
+# 		- Added read-only interface.
+# 		- Added ability to generate zone files and rev maps
+# 		  from the master files without performing updates,
+# 		  known as sync.
+# 	Apr 2006: Release 1.0
+# 		- Basic interface and zone generation.
+# --------------------------------------------------------------------
+# To Do:
+# 	- If a new rev map is created or a new zone file appears,
+# 	  prompt the user to add rev map or zone to the include files.
+# 		- Make this functionality require a command-line flag.
+# 	- Change testing of variable list additions into a function.
+# 	- zonetest():
+# 		- named-checkzone returns line numbers of the final
+# 		  zone file. Subtract 8 to get master file line number.
+#
+############################################################ INCLUDES
+
+progdir="${0%/*}" # Program directory
+
+. "$progdir/nsadmin-var.inc" || exit
+. "$progdir/nsadmin-edit.inc" || exit
+. "$progdir/nsadmin-gen.inc" || exit
+. "$progdir/nsadmin-op.inc" || exit
+. "$progdir/nsadmin-zone.inc" || exit
+
+############################################################ GLOBALS
+
+#
+# Command-line options (local)
+# NB: See also nsadmin-var.inc
+#
+syncall=	# -a
+
+############################################################ FUNCTIONS
+
+# usage
+#
+# Print the help menu and exit.
+#
+usage()
+{
+	exec >&2
+	echo
+	echo "  Usage: $pgm ..."
+	echo
+	echo "    Edit Mode:"
+	echo "	Used to edit the master $pgm files:"
+	echo
+	echo "		$pgm [-n slaves] -e"
+	echo
+	echo "    Review Mode: (Default)"
+	echo "	Used to view the master $pgm files:"
+	echo
+	echo "		$pgm"
+	echo
+	echo "    Sync Mode:"
+	echo "	Used to update the Bind zone files with the data from"
+	echo "	the master $pgm files. This does not allow"
+	echo "	editing of the master files:"
+	echo
+	echo "		$pgm -s [-ah?] [-n slaves] -l <file>[,<file>, ..."
+	echo
+	echo "		-a			Sync all master files."
+	echo "		-l <file>[,<file>]	Sync list of files."
+	echo "		-n <slave>[,<slave>]	Override list of slaves."
+	echo
+
+	exit $FAILURE
+}
+
+############################################################ MAIN
+
+# $USER is required for all logging and auditability.
+[ "$USER" = root ] &&
+	fatal "root is forbidden to use nsadmin" # NOTREACHED
+
+#
+# Process command-line options
+#
+while getopts "aehl:n:s?" flag; do
+	case "$flag" in
+	a) syncall=1 ;;
+	e) editmode=1 ;;
+	l) updzones=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
+	n) slaves=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
+	s) sync=1 ;;
+	*) usage ;; # NOTREACHED
+	esac
+done
+
+cd "$nsadmindir" || exit
+
+if [ "$syncall" ]; then
+	for file in *; do
+		[ -e "$file" ] || continue
+		skip=
+		for excl in $exclude; do
+			[ "$file" = "$excl" ] || continue
+			skip=1
+			break
+		done
+		if [ ! "$skip" ] && [ ! "$updzones" ]; then
+			updzones="$file"
+		elif [ ! "$skip" ]; then
+			updzones="$updzones $file"
+		fi
+	done
+fi
+
+if [ "$updzones" ] && [ ! "$sync" ]; then
+	msg "ERROR: '-l' or '-a' requires '-s'"
+	usage # NOTREACHED
+fi
+
+umask 0002
+LESSSECURE=1 # Disable edit functions
+
+#
+# Check for duplicate instances
+#
+pids=
+for pid in $( pgrep -f "$pgm" 2> /dev/null ); do
+        case "$pid" in $$|$PPID) continue; esac
+        ps -p $pid > /dev/null 2>&1 || continue
+        pids="$pids $pid"
+done
+if [ "$pids" ]; then
+        echo "Already running:" $pids
+        exit $FAILURE
+fi
+
+# Make sure only one person is building zone files at a time
+if [ "$editmode" ] || [ "$sync" ]; then
+	getlock
+	predit
+fi
+
+# Display zone menu unless -a/-l given
+[ "$updzones" ] || zonemenu
+
+#
+# If there are changes to the master files, generate the zones
+#
+[ "$updzones" ] || exit $SUCCESS
+if [ "$sync" ]; then
+	msg "File generation called by sync option."
+	msg "Files: $updzones"
+else
+	# We need a description of why this is being done
+	( set -e
+		tmpfile=$( mktemp -t "$pgm.XXXXXXXX" )
+		awk 'sub(/^\t+/,"")||1' >> "$tmpfile" <<-EOF
+
+
+		# Please enter some text describing your changes
+		#
+		# IMPORTANT! Lines beginning with # are ignored
+		# IMPORTANT! Blank lines are ignored
+		#
+		# WARNING! Changes will be aborted without a message
+		EOF
+		trap 'rm -f "$tmpfile" > /dev/null 2>&1' EXIT
+		${EDITOR:-vi} "$tmpfile"
+		msg=$( awk '!/^[[:space:]]*(#|$)/' "$tmpfile" )
+		cat "$log" > "$tmpfile"
+		if [ ! "$msg" ]; then
+			msg="WARNING! No message entered. Cancelling."
+			echo "$msg" >&2
+			echo "$msg" > "$log"
+			echo >> "$log"
+			cat "$tmpfile" >> "$log"
+			exit $FAILURE
+		fi
+		echo "$msg" > "$log"
+		echo >> "$log"
+		cat "$tmpfile" >> "$log"
+	) || exit
+fi
+genmaster
+pushzones
+dnsreload
+
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################
