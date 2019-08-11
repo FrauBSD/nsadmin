@@ -2,12 +2,12 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-08-11 16:35:09 -0700 root $
+# $FrauBSD: nsadmin/Makefile 2019-08-11 16:57:41 -0700 root $
 #
 ############################################################ CONFIGURATION
 
 DESTDIR=	/usr/local/bin
-ETCDIR=		/etc/nsadmin
+NSADMINDIR=	/etc/nsadmin
 
 ############################################################ PATHS
 
@@ -44,7 +44,7 @@ all install:
 
 install-admin:
 	$(CP_F) $(NSADMIN) $(DESTDIR)/
-	$(MKDIR_P) $(ETCDIR)/
+	$(MKDIR_P) $(NSADMINDIR)/
 
 install-slave:
 	@$(EVAL2); \
