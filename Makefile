@@ -2,15 +2,18 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-08-11 16:28:31 -0700 root $
+# $FrauBSD: nsadmin/Makefile 2019-08-11 16:35:09 -0700 root $
 #
 ############################################################ CONFIGURATION
 
 DESTDIR=	/usr/local/bin
+ETCDIR=		/etc/nsadmin
 
 ############################################################ PATHS
 
-CP=		cp
+CAT=		cat
+CP_F=		cp -f
+MKDIR_P=	mkdir -p
 
 ############################################################ FUNCTIONS
 
@@ -34,21 +37,22 @@ NSSLAVE7=	nsslave-centos7 \
 
 ############################################################ TARGETS
 
-install:
+all install:
 	@printf "Options:\n"
 	@printf "\tmake install-admin\tInstall nsadmin\n"
 	@printf "\tmake install-slave\tInstall nsslave\n"
 
 install-admin:
-	$(CP) -f $(NSADMIN) $(DESTDIR)/
+	$(CP_F) $(NSADMIN) $(DESTDIR)/
+	$(MKDIR_P) $(ETCDIR)/
 
 install-slave:
 	@$(EVAL2); \
-	 case "$$( eval2 cat /etc/redhat-release )" in \
+	 case "$$( eval2 $(CAT) /etc/redhat-release )" in \
 	 *" 6."*) set -- $(NSSLAVE) ;; \
 	 *) set -- $(NSSLAVE7); \
 	 esac; \
-	 eval2 $(CP) -f $$* $(DESTDIR)/
+	 eval2 $(CP_F) -f $$* $(DESTDIR)/
 
 ################################################################################
 # END
