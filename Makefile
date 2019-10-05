@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-04 23:20:17 -0700 root $
+# $FrauBSD: nsadmin/Makefile 2019-10-05 00:06:03 -0700 root $
 #
 ############################################################ CONFIGURATION
 
@@ -44,7 +44,7 @@ all install:
 install-admin:
 	$(CP_F) $(NSADMIN) $(DESTDIR)/
 	$(CP_N) $(NSADMIN_VAR) $(DESTDIR)/
-	$(MKDIR_P) $(NSADMINDIR)/
+	$(MKDIR_P) $(NSADMINDIR)/RCS
 
 install-slave:
 	@$(EVAL2); \
