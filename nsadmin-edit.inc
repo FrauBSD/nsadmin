@@ -30,7 +30,7 @@
 # $Title: nsadmin functions for managing edits on zone files $
 # $Id: nsadmin-edit.inc,v 1.1 2012/05/09 21:39:36 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-edit.inc 2019-10-05 00:51:50 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin-edit.inc 2019-10-05 01:02:36 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -104,6 +104,20 @@ predit()
 	EOF
 
 	mkdir -p "$tmp"
+}
+
+# clear
+#
+# Like clear(1) but preserve scrollback.
+#
+clear()
+{
+	local size rows cols
+	size=$( stty size 2> /dev/null )
+	set -- ${size:-24 80}
+	rows="$1"
+	cols="$2"
+	printf "\e[${rows}S\e[H"
 }
 
 ################################################################################
