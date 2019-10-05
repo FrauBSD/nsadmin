@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsslave,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsslave 2019-10-05 15:04:07 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsslave 2019-10-05 15:08:16 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -39,7 +39,7 @@
 #
 # --------------------------------------------------------------------
 # Notes:
-# 	- Requires nsslave-var.inc to operate.
+# 	- Requires nsslave.conf to operate.
 # 	- Requires user 'cm' and the appropriate .ssh/authorized_keys2
 # 	  file.
 # 	- User 'cm' must be able to 'sudo /usr/local/bin/nsslave'
@@ -59,9 +59,7 @@
 #
 ############################################################ INCLUDES
 
-progdir="${0%/*}" # Program directory
-
-. "$progdir/nsslave-var.inc" || exit
+. "/etc/nsslave.conf" || exit
 
 ############################################################ GLOBALS
 
