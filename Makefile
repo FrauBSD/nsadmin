@@ -2,11 +2,12 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-05 00:06:03 -0700 root $
+# $FrauBSD: nsadmin/Makefile 2019-10-05 12:44:27 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
 DESTDIR=	/usr/local/bin
+CONFDIR=	/etc
 NSADMINDIR=	/etc/nsadmin
 
 ############################################################ PATHS
@@ -28,7 +29,7 @@ NSADMIN=	nsadmin \
 		nsadmin-op.inc \
 		nsadmin-zone.inc \
 		zone2rev.awk
-NSADMIN_VAR=	nsadmin-var.inc
+NSADMIN_CONF=	nsadmin-var.inc
 
 NSSLAVE=	nsslave
 NSSLAVE7=	nsslave-centos7
@@ -43,7 +44,7 @@ all install:
 
 install-admin:
 	$(CP_F) $(NSADMIN) $(DESTDIR)/
-	$(CP_N) $(NSADMIN_VAR) $(DESTDIR)/
+	$(CP_N) $(NSADMIN_CONF) $(CONFDIR)/
 	$(MKDIR_P) $(NSADMINDIR)/RCS
 
 install-slave:

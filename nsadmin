@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-04 23:44:50 -0700 root $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 12:44:27 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -107,7 +107,7 @@
 
 progdir="${0%/*}" # Program directory
 
-. "$progdir/nsadmin-var.inc" || exit
+. "/etc/nsadmin.conf" || exit
 . "$progdir/nsadmin-edit.inc" || exit
 . "$progdir/nsadmin-gen.inc" || exit
 . "$progdir/nsadmin-op.inc" || exit
