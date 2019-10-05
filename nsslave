@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsslave,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsslave 2019-10-05 00:51:50 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsslave 2019-10-05 15:04:07 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -46,6 +46,8 @@
 # 	  without a password.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 2.2
+# 		- Runtime OS glue
 # 	Jul 2019: Release 2.1
 # 		- Initial public release.
 # 	Jul 2018: Release 2.0
@@ -61,7 +63,16 @@ progdir="${0%/*}" # Program directory
 
 . "$progdir/nsslave-var.inc" || exit
 
+############################################################ GLOBALS
+
+#
+# OS Glue
+#
+SYSTEMD=
+
 ############################################################ FUNCTIONS
+
+have(){ type "$@" > /dev/null 2>&1; }
 
 # msg text ...
 #
@@ -88,6 +99,8 @@ sigquit()
 }
 
 ############################################################ MAIN
+
+have systemctl && SYSTEMD=1
 
 umask 0022
 trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
@@ -119,13 +132,21 @@ done
 
 msg "Restarting named:$( date )"
 printf "\t\t"
-service named reload || pkill -1 named
+if [ "$SYSTEMD" ]; then
+	systemctl reload named-chroot
+else
+	service named reload || pkill -1 named
+fi
 sleep 1
 if ! pgrep named > /dev/null; then
 	msg "ERROR: named is not running after reload: $( date )"
 
 	msg "ERROR: attempting manual restart: $( date )"
-	service named start
+	if [ "$SYSTEMD" ]; then
+		systemctl start named-chroot
+	else
+		service named start
+	fi
 	if pgrep named > /dev/null; then
 		msg "Manual restart succeeded: $( date )"
 		exit $SUCCESS
@@ -143,7 +164,11 @@ if ! pgrep named > /dev/null; then
 	done
 	cd - > /dev/null
 
-	service named start
+	if [ "$SYSTEMD" ]; then
+		systemctl start named-chroot
+	else
+		service named start
+	fi
 	if pgrep named > /dev/null; then
 		msg "Roll-back succeeded: $( date )"
 		update=0
