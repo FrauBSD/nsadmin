@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsslave,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsslave 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsslave 2019-10-05 00:51:50 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -91,7 +91,8 @@ sigquit()
 
 umask 0022
 trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
-cd "$tmp"
+mkdir -p "$tmp"
+cd "$tmp" || exit
 
 msg "Unpacking zone tarball: $( date )"
 tar xvzf zone.tgz 2>&1 | while read line; do
@@ -133,7 +134,6 @@ if ! pgrep named > /dev/null; then
 	msg "ERROR: manual restart failed: $( date )"
 	msg "ERROR: attempting to roll-back: $( date )"
 
-	cwd="$PWD"
 	cd "$nameddir"
 	for view in $views; do
 		for file in $( find "$view" -name ".bak-*" ); do
@@ -141,12 +141,12 @@ if ! pgrep named > /dev/null; then
 			mv "$file" "$res"
 		done
 	done
+	cd - > /dev/null
 
 	service named start
 	if pgrep named > /dev/null; then
 		msg "Roll-back succeeded: $( date )"
 		update=0
-		cd "$cwd"
 		exit $FAILURE
 	fi
 

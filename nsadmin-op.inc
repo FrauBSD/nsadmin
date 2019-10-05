@@ -30,7 +30,7 @@
 # $Title: nsadmin functions for user/bind9 interaction $
 # $Id: nsadmin-op.inc,v 1.3 2012/05/10 23:25:13 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-op.inc 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin-op.inc 2019-10-05 00:51:50 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -76,7 +76,6 @@ dnsreload()
 		msg "ERROR: manual restart failed: $( date )"
 		msg "ERROR: attempting to roll-back: $( date )"
 
-		cwd="$PWD"
 		cd "$nameddir"
 		for view in $views; do
 			for file in $( find "$view" -name ".bak-*" ); do
@@ -84,12 +83,12 @@ dnsreload()
 				sudo mv "$file" "$res"
 			done
 		done
+		cd - > /dev/null
 
 		sudo service named start
 		if pgrep named > /dev/null; then
 			msg "Roll-back succeeded: $( date )"
 			update=0
-			cd "$cwd"
 			return
 		fi
 
@@ -204,7 +203,7 @@ sigquit()
 		[ "$skip" ] || chmod a-w "$file" > /dev/null 2>&1
 	done
 
-	cd "$cwd"
+	cd - > /dev/null
 
 	ransig=1
 }

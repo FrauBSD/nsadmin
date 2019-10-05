@@ -30,7 +30,7 @@
 # $Title: nsadmin functions for managing edits on zone files $
 # $Id: nsadmin-edit.inc,v 1.1 2012/05/09 21:39:36 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-edit.inc 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin-edit.inc 2019-10-05 00:51:50 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -47,8 +47,6 @@ editmaster()
 {
 	local file="$1"
 
-	cwd="$PWD"
-
 	cat >> "$log" <<-EOF
 	$sepdbl
 	Editing $file
@@ -62,7 +60,7 @@ editmaster()
 	${EDITOR:-vi} "$file"
 	verify "$file"
 
-	cd "$cwd"
+	cd - > /dev/null
 }
 
 # getlock
@@ -105,7 +103,6 @@ predit()
 
 	EOF
 
-	cd "$nsadmindir"
 	mkdir -p "$tmp"
 }
 

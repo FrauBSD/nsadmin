@@ -30,7 +30,7 @@
 # $Title: nsadmin functions for vcs/zone interaction $
 # $Id: nsadmin-zone.inc,v 1.4 2012/05/11 03:18:25 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-zone.inc 2019-10-04 23:14:50 -0700 root $
+# $FrauBSD: nsadmin/nsadmin-zone.inc 2019-10-05 00:51:50 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -124,16 +124,19 @@ pushzones()
 			sudo cp "$file" "$res"
 		done
 	done
+	cd - > /dev/null
 
 	msg "	Pushing local zones: $( date )"
 	cd "$tmp"
 	sudo chown -R "$binduser:$bindgroup" *
 	sudo chmod -R g-w *
 	find . -type f -exec sudo cp {} "$nameddir/{}" \;
+	cd - > /dev/null
 
 	msg "	Building zone tarball: $( date )"
 	cd "$tmp"
 	tar czf zone.tgz *
+	cd - > /dev/null
 #?	sleep 2 # Testing -- Parker
 
 	for slave in $slaves; do
@@ -157,8 +160,6 @@ pushzones()
 
 #?		sleep 2 # Testing -- Parker
 	done
-
-	cd "$cwd"
 }
 
 # verify file

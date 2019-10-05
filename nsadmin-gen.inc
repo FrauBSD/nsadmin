@@ -30,7 +30,7 @@
 # $Title: nsadmin functions for generating bind9 master/rev zone files $
 # $Id: nsadmin-gen.inc,v 1.7 2012/05/11 03:20:58 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-gen.inc 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin-gen.inc 2019-10-05 00:51:50 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -122,8 +122,8 @@ genrev()
 	local subnet
 	local view
 
+	cd "$nsadmindir"
 	for view in $views; do
-		cd "$nsadmindir"
 
 		list=$( ls -d [a-z0-9]* )
 		for excl in $exclude; do
@@ -167,6 +167,7 @@ genrev()
 			rm -f "$file"
 		done
 	done
+	cd - > /dev/null
 }
 
 # genzone zone ...
@@ -184,9 +185,8 @@ genzone()
 		mkdir -p "$tmp/$view/master" "$tmp/$view/rev"
 	done
 
-	cd "$tmp"
 	for view in $views; do
-		cd "$view/master"
+		cd "$tmp/$view/master"
 
 		for file in $list; do
 
@@ -220,7 +220,7 @@ genzone()
 			}' "$nsadmindir/$file" >> "$file"
 		done
 
-		cd "$tmp"
+		cd - > /dev/null
 	done
 }
 
