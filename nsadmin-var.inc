@@ -30,7 +30,7 @@
 # $Title: nsadmin configuration file $
 # $Id: nsadmin-var.inc,v 1.3 2012/05/11 02:37:17 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-var.inc 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin-var.inc 2019-10-04 23:32:35 -0700 root $
 #
 ############################################################ INFORMATION
 #
@@ -56,7 +56,6 @@ bindgroup=named				# Bind files/executable group
 binduser=named				# Bind files/executable owner
 exclude="RCS build"			# Exclude from changes or edits
 					# in $nsadmindir
-colist=					# Array of RCS co'd files
 critical=page-ops@example.com		# Critical failure email address
 editmode=				# Run in edit mode
 failfile=				# File that failed zonetest()
