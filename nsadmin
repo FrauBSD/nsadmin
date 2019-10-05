@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 12:59:48 -0700 root $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 13:14:43 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -41,7 +41,7 @@
 #
 # --------------------------------------------------------------------
 # Notes:
-# 	- Requires nsadmin-{op,var,zone}.inc on the master
+# 	- Requires nsadmin-{op,zone}.inc and nsadmin.conf on the master
 # 	  Bind server to operate.
 # 	- Requires nsslave and nsslave-var.inc on the slave Bind
 # 	  servers to operate.
