@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-04 23:24:09 -0700 root $
 #
 ############################################################ INFORMATION
 #
@@ -202,7 +202,7 @@ if [ "$updzones" ] && [ ! "$sync" ]; then
 	usage # NOTREACHED
 fi
 
-umask 0002
+umask 0022
 LESSSECURE=1 # Disable edit functions
 
 #
