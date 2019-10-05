@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-05 12:59:48 -0700 root $
+# $FrauBSD: nsadmin/Makefile 2019-10-05 13:21:08 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -24,7 +24,6 @@ EVAL2=		exec 3<&1; eval2(){ echo "$$*"; eval "$$@"; }
 ############################################################ OBJECTS
 
 NSADMIN=	nsadmin \
-		nsadmin-op.inc \
 		nsadmin-zone.inc \
 		zone2rev.awk
 NSADMIN_CONF=	nsadmin.conf

@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 13:14:43 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 13:21:08 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -41,7 +41,7 @@
 #
 # --------------------------------------------------------------------
 # Notes:
-# 	- Requires nsadmin-{op,zone}.inc and nsadmin.conf on the master
+# 	- Requires nsadmin-zone.inc and nsadmin.conf on the master
 # 	  Bind server to operate.
 # 	- Requires nsslave and nsslave-var.inc on the slave Bind
 # 	  servers to operate.
@@ -108,7 +108,6 @@
 progdir="${0%/*}" # Program directory
 
 . "/etc/nsadmin.conf" || exit
-. "$progdir/nsadmin-op.inc" || exit
 . "$progdir/nsadmin-zone.inc" || exit
 
 ############################################################ GLOBALS
@@ -157,6 +156,7 @@ usage()
 }
 
 ############################################################ EDIT FUNCTIONS
+# Functions to edit/change master files for zone and rev maps
 
 # editmaster zone
 #
@@ -240,6 +240,7 @@ clear()
 }
 
 ############################################################ GEN FUNCTIONS
+# Functions to generate zone files and reverse maps
 
 # genmaster
 #
@@ -457,6 +458,229 @@ revunq()
 	' > .revunq
 
 	sudo mv .revunq "$file"
+}
+
+############################################################ OP FUNCTIONS
+# Functions to operate dns change mechanism and interact with user
+
+# dnsreload
+#
+# Reload the master Bind named process.
+#
+dnsreload()
+{
+	local file
+	local res
+	local view
+
+#?	clear # Testing -- Parker
+	cat <<-EOF
+	$sep
+	# nsadmin: Local Bind Reload
+	$sep
+
+	EOF
+
+	msg "Reloading Bind: $( date )"
+
+	echo
+	sudo service named restart
+	sleep 1
+	if ! pgrep named > /dev/null; then
+		msg "ERROR: named is not running after reload: $( date )"
+
+		msg "ERROR: attempting manual restart: $( date )"
+		sudo service named start
+		if pgrep named > /dev/null; then
+			msg "Manual restart succeeded: $( date )"
+			update=0
+			return
+		fi
+
+		msg "ERROR: manual restart failed: $( date )"
+		msg "ERROR: attempting to roll-back: $( date )"
+
+		cd "$nameddir"
+		for view in $views; do
+			for file in $( find "$view" -name ".bak-*" ); do
+				res=$( echo "$file" | sed -e "s/.bak-//" )
+				sudo mv "$file" "$res"
+			done
+		done
+		cd - > /dev/null
+
+		sudo service named start
+		if pgrep named > /dev/null; then
+			msg "Roll-back succeeded: $( date )"
+			update=0
+			return
+		fi
+
+		echo "$USER: $( date )" |
+			mail -s "nsadmin: roll-back failed" "$critical"
+		fatal "roll-back failed ... giving up" # NOTREACHED
+		update=2
+
+	fi
+
+	update=0 # successful update/reload
+}
+
+# fatal
+#
+# Generate a fatal error message and exit this program.
+#
+fatal()
+{
+	logger -p user.crit -t "FATAL ERROR" "$*"
+	echo
+	echo " Fatal Error: $*" | tee -a "$log"
+	echo
+	exit 1
+}
+
+# msg
+#
+# Provide a supplied message to the user and the log file.
+#
+msg()
+{
+	logger -p user.info -t Info "$*"
+	cat <<-EOF | tee -a "$log"
+
+	 $*
+
+	EOF
+}
+
+# sigquit
+#
+# Process a set of commands when a signal is caught by trap.
+#
+sigquit()
+{
+	local excl
+	local file
+	local res
+	local skip
+	local subj
+
+	[ "$ransig" ] && return
+
+	stty echo
+
+	LESSSECURE=
+
+	cd "$nsadmindir"
+
+	if [ ${update:=0} -eq 1 ]; then
+		msg "ERROR: nsadmin killed after changes were" \
+		    "made to master files: rolling back"
+		for file in .bak-*; do
+			[ -e "$file" ] || continue
+			res=$( echo "$file" | sed -e s/.bak-// )
+			cp "$file" "$res" > /dev/null 2>&1
+		done
+		checkin
+		subj="nsadmin: ERROR: $( date ): $USER"
+	elif [ ${update:=0} -eq 2 ]; then
+		msg "ERROR: nsadmin killed after files were" \
+		    "updated in the NAMEDB directory: rolling back"
+		for file in .bak-*; do
+			[ -e "$file" ] || continue
+			res=$( echo "$file" | sed -e s/.bak-// )
+			cp "$file" "$res"
+		done
+		checkin
+		msg "ERROR":" rolling back NAMEDB zone files"
+		subj="nsadmin: ERROR: $( date ): $USER"
+	else
+		checkin
+		subj="nsadmin: $( date ): $USER"
+	fi
+
+	echo
+	echo >> "$log"
+	echo "$sep" >> "$log"
+	echo " Finished: $( date )" | tee -a "$log"
+	echo "$sep" >> "$log"
+	echo >> "$log"
+	cat "$log" | mail -s "$subj" "$admin"
+
+	sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
+
+	# XXX Save the older version in case of emergency.
+	#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
+
+	#
+	# Make sure files are not left in a write state as it will
+	# generate errors.
+	#
+	for file in *; do
+		[ -e "$file" ] || continue
+		skip=
+		for excl in $exclude; do
+			[ "$file" = "$excl" ] || continue
+			skip=1
+			break
+		done
+		[ "$skip" ] || chmod a-w "$file" > /dev/null 2>&1
+	done
+
+	cd - > /dev/null
+
+	ransig=1
+}
+
+# zonemenu
+#
+# Print the list of zones and prompt for user selection.
+#
+zonemenu()
+{
+	local zone
+
+	while :; do
+		zonelist
+
+		printf "\n Please choose a zone to"
+		if [ "$editmode" ]; then
+			printf " edit "
+		elif [ "$sync" ]; then
+			printf " sync "
+		else
+			printf " view "
+		fi
+		printf "or 'q' to quit: "
+		read zone
+
+		if [ "$zone" = Q ] || [ "$zone" = q ]; then
+			break
+		fi
+
+		echo
+		if [ ! "$zone" ] || [ ! -f "$zone" ]; then
+			msg "Zone file not found: '$zone'"
+			continue
+		fi
+
+		if [ "$editmode" ]; then
+			cp "$zone" ".bak-$zone" > /dev/null 2>&1
+			editmaster "$zone"
+		elif [ "$sync" ]; then
+			if [ "$updzones" ]; then
+				if ( ! echo "$updzones" | egrep \
+		    		    "(^| |	)$zone(	| |$)" \
+		    		    > /dev/null 2>&1 ); then
+					updzones="$updzones $zone"
+				fi
+			else
+				updzones="$zone"
+			fi
+		else
+			${PAGER:-less} "$zone"
+		fi
+	done
 }
 
 ############################################################ MAIN
