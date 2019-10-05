@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-04 23:24:09 -0700 root $
+# $FrauBSD: nsadmin/nsadmin 2019-10-04 23:36:28 -0700 root $
 #
 ############################################################ INFORMATION
 #
@@ -209,7 +209,7 @@ LESSSECURE=1 # Disable edit functions
 # Check for duplicate instances
 #
 pids=
-for pid in $( pgrep -f "$pgm" 2> /dev/null ); do
+for pid in $( pgrep -P "$( pgrep -d , sh )" -f nsadmin 2> /dev/null ); do
         case "$pid" in $$|$PPID) continue; esac
         ps -p $pid > /dev/null 2>&1 || continue
         pids="$pids $pid"
