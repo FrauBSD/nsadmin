@@ -30,7 +30,7 @@
 # $Title: nsadmin functions for vcs/zone interaction $
 # $Id: nsadmin-zone.inc,v 1.4 2012/05/11 03:18:25 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin-zone.inc 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin-zone.inc 2019-10-04 23:14:50 -0700 root $
 #
 ############################################################ INFORMATION
 #
@@ -47,9 +47,9 @@ checkin()
 {
 	local cnt=1
 
-	while [ "${colist[$cnt]}" ]; do
+	while eval [ \"\$colist_$cnt\" ]; do
 		echo "$USER: $( date )" |
-			ci -u "${colist[$cnt]}" #? > /dev/null 2>&1
+			eval ci -u \"\$colist_$cnt\" #? \> /dev/null 2\>\&1
 		cnt=$(( $cnt + 1 ))
 	done
 }
@@ -63,12 +63,12 @@ checkout()
 	local cnt=1
 	local file="$1"
 
-	while [ "${colist[$cnt]}" ]; do
-		[ "$file" = "${colist[$cnt]}" ] && return
+	while eval [ \"\$colist_$cnt\" ]; do
+		eval [ \"\$file\" = \"\$colist_$cnt\" ] && return
 		cnt=$(( $cnt + 1 ))
 	done
 
-	colist[$cnt]="$file"
+	eval colist_$cnt=\"\$file\"
 	co -l "$file" > /dev/null 2>&1
 }
 
