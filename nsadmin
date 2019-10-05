@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 13:26:37 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 13:32:40 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -104,15 +104,23 @@
 #
 ############################################################ INCLUDES
 
-progdir="${0%/*}" # Program directory
-
-. "/etc/nsadmin.conf" || exit
+. /etc/nsadmin.conf || exit
 
 ############################################################ GLOBALS
 
+pgm="${0##*/}" # Program basename
+progdir="${0%/*}" # Program directory
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
 #
-# Command-line options (local)
-# NB: See also nsadmin-var.inc
+# Global exit status
+#
+SUCCESS=0
+FAILURE=1
+
+#
+# Command-line options
 #
 syncall=	# -a
 
