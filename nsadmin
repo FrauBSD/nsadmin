@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 12:44:27 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 12:53:44 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -41,7 +41,7 @@
 #
 # --------------------------------------------------------------------
 # Notes:
-# 	- Requires nsadmin-{edit,gen,op,var,zone}.inc on the master
+# 	- Requires nsadmin-{gen,op,var,zone}.inc on the master
 # 	  Bind server to operate.
 # 	- Requires nsslave and nsslave-var.inc on the slave Bind
 # 	  servers to operate.
@@ -108,7 +108,6 @@
 progdir="${0%/*}" # Program directory
 
 . "/etc/nsadmin.conf" || exit
-. "$progdir/nsadmin-edit.inc" || exit
 . "$progdir/nsadmin-gen.inc" || exit
 . "$progdir/nsadmin-op.inc" || exit
 . "$progdir/nsadmin-zone.inc" || exit
@@ -156,6 +155,89 @@ usage()
 	echo
 
 	exit $FAILURE
+}
+
+############################################################ EDIT FUNCTIONS
+
+# editmaster zone
+#
+# Edit the master files.
+#
+editmaster()
+{
+	local file="$1"
+
+	cat >> "$log" <<-EOF
+	$sepdbl
+	Editing $file
+	$sepdbl
+
+	EOF
+
+	cd "$nsadmindir"
+	checkout "$file"
+
+	${EDITOR:-vi} "$file"
+	verify "$file"
+
+	cd - > /dev/null
+}
+
+# getlock
+#
+# Establish an exclusive lock for master file edits.
+#
+getlock()
+{
+	local clobber=
+	local res
+
+	if [ -f "$lock" ]; then
+		res=$( ls -l "$lock" | awk '{print $3}' )
+		fatal "lock file exists, owner is $res" # NOTREACHED
+	fi
+
+	[ "$-" = "${-#*C}" ] && clobber=1
+	set -C
+	echo $$ > "$lock" || fatal "could not create '$lock'" # NOTREACHED
+	[ "$clobber" ] && set +C
+}
+
+# predit
+#
+# Prepare the editing of the master files.
+#
+predit()
+{
+	trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
+
+	msg "$USER starting edits: $( date )"
+
+	sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
+
+	cat > "$log" <<-EOF
+
+	$sep
+	 Starting: $( date )
+	$sep
+
+	EOF
+
+	mkdir -p "$tmp"
+}
+
+# clear
+#
+# Like clear(1) but preserve scrollback.
+#
+clear()
+{
+	local size rows cols
+	size=$( stty size 2> /dev/null )
+	set -- ${size:-24 80}
+	rows="$1"
+	cols="$2"
+	printf "\e[${rows}S\e[H"
 }
 
 ############################################################ MAIN
