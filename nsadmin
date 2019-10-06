@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 13:32:40 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 19:48:06 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -479,7 +479,7 @@ dnsreload()
 	local res
 	local view
 
-#?	clear # Testing -- Parker
+	clear
 	cat <<-EOF
 	$sep
 	# nsadmin: Local Bind Reload
@@ -759,7 +759,7 @@ pushzones()
 
 	cwd="$PWD"
 
-#?	clear # Testing -- Parker
+	clear
 	cat <<-EOF
 	$sep
 	# nsadmin: Zone Push
@@ -790,10 +790,10 @@ pushzones()
 	cd "$tmp"
 	tar czf zone.tgz *
 	cd - > /dev/null
-#?	sleep 2 # Testing -- Parker
+	sleep 2
 
 	for slave in $slaves; do
-#?		clear # Testing -- Parker
+		clear
 		cat <<-EOF
 		$sep
 		# nsadmin: Zone Push
@@ -811,7 +811,7 @@ pushzones()
 		cmd="$cmd 'sudo /usr/local/bin/nsslave'"
 		sudo su - $user -c "$cmd"
 
-#?		sleep 2 # Testing -- Parker
+		sleep 2
 	done
 }
 
@@ -840,7 +840,7 @@ verify()
 		return
 	fi
 
-#?	clear # Testing -- Parker
+	clear
 	cat <<-EOF
 	$sep
 	# nsadmin: Verify Failure
@@ -1081,7 +1081,7 @@ zonetest()
 		echo "$res" | sed -e "s/^/	/"
 		echo
 
-#?		sleep 2 # Testing -- Parker
+		sleep 2
 	done
 }
 
