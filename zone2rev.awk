@@ -28,7 +28,7 @@
 #
 # $Title: Generate PTR records from nsadmin zone file $
 # $Copyright: 2018-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/zone2rev.awk 2019-07-16 18:44:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/zone2rev.awk 2019-10-05 20:55:57 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -292,8 +292,15 @@ BEGIN {
 		if ($1 ~ "^" file) continue
 		if (/;*VIEW:/ && $0 !~ view) continue
 		if (/\*/) continue
-		if ($2 == "A") {
-			if ((errno = validate_ipaddr4(ip = $3)) != 0) {
+		if ((family = toupper($2)) == "IN") {
+			type = toupper($3)
+			ip = $4
+		} else {
+			type = family
+			ip = $3
+		}
+		if (type == "A") {
+			if ((errno = validate_ipaddr4(ip)) != 0) {
 				err(sprintf("bad A record `%s' for `%s' " \
 					"(ERR#%u)", ip, $1, errno))
 				continue
@@ -304,8 +311,8 @@ BEGIN {
 			rev = sprintf(".new-%u.%u.%u", oct[3], oct[2], oct[1])
 			ptr = sprintf("%u\t\t\t\t\tPTR\t%s.%s.",
 				oct[4], $1, file)
-		} else if ($2 == "AAAA") {
-			if ((errno = validate_ipaddr6(ip = $3)) != 0) {
+		} else if (type == "AAAA") {
+			if ((errno = validate_ipaddr6(ip)) != 0) {
 				err(sprintf("bad AAAA record `%s' for `%s' " \
 					"(ERR#%u)", ip, $1, errno))
 				continue
