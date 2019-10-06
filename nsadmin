@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 20:56:50 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-05 20:57:42 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -776,6 +776,11 @@ pushzones()
 	msg "	Backing up previous versions: $( date )"
 	cd "$nameddir"
 	for view in $views; do
+		for dir in "$view" "$view/master" "$view/rev"; do
+			[ ! -e "$dir" ] || continue
+			mkdir -p -m 0770 "$dir"
+			sudo chown "$binduser:$bindgroup" "$dir"
+		done
 		for file in $( find "$view" -type f ! -name ".bak-*" ); do
 			res=$( echo "$file" |
 			    sed -e 's/\(.*\/\)\(.*\)/\1.bak-\2/' )
