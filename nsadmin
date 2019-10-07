@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-05 20:57:42 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-06 22:07:52 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -1154,6 +1154,14 @@ done
 if [ "$pids" ]; then
         echo "Already running:" $pids
         exit $FAILURE
+fi
+
+#
+# Setup
+#
+if [ ! -e "$nsadmindir/RCS" ]; then
+	mkdir -p -m 0770 "$nsadmindir/RCS"
+	sudo chown "$bindgroup:$binduser" "$nsadmindir/RCS"
 fi
 
 # Make sure only one person is building zone files at a time
