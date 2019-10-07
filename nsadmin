@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-06 22:09:54 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-06 23:15:17 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -338,18 +338,26 @@ genrev()
 
 	cd "$nsadmindir"
 	for view in $views; do
+		msg " VIEW: $view/rev"
 
-		list=$( ls -d [a-z0-9]* )
+		list="${updzones:-$( ls -d [a-z0-9]* )}"
 		for excl in $exclude; do
 			list=$( echo "$list" | sed -e "s/$excl//" )
 		done
 
+		local zone2rev_debug=0
+		[ "$sync" ] && zone2rev_debug=1
 		for file in $list; do
+			echo "  [$file]"
 			for subnet in $subnets; do
-				sudo zone2rev.awk -v view="$view" \
-					-v file="$file" -v subnet="$subnet" \
-					> /dev/null 2>&1
+#?				echo "  -> $subnet" # Testing -- Devin
+				sudo "$progdir/zone2rev.awk" \
+					-v view="$view" \
+					-v file="$file" \
+					-v subnet="$subnet" \
+					-v debug=$zone2rev_debug
 			done
+#?			echo # Testing -- Devin
 		done
 
 		for file in .new-*; do
@@ -400,10 +408,11 @@ genzone()
 	done
 
 	for view in $views; do
+		msg " VIEW: $view/master"
 		cd "$tmp/$view/master"
 
 		for file in $list; do
-
+			echo "  -> $file"
 			origin="$file."
 
 			awk 'sub(/^\\t/,"\t")||1' > "$file" <<-EOF
