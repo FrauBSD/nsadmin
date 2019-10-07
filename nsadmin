@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-06 22:07:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-06 22:09:54 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -1040,7 +1040,7 @@ zonetest()
 		set -- ${file#"$tmp/"}
 		IFS="$_IFS"
 
-		clear
+#?		clear # Testing -- Devin
 		cat <<-EOF
 		$sep
 		# nsadmin: Zone Tests
