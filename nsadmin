@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-08 15:53:38 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-08 15:56:22 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -1279,9 +1279,9 @@ verify()
 	echo "$res" | tee -a "$log"
 	diff=$( rcsdiff -u "$file" )
 	if have vimcat; then
-		echo "$diff" | vimcat
+		echo "$diff" | vimcat | less -F -R
 	else
-		echo "$diff"
+		echo "$diff" | less -F
 	fi
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
@@ -1366,9 +1366,9 @@ vprompt()
 
 	diff=$( rcsdiff -u "$file" )
 	if have vimcat; then
-		echo "$diff" | vimcat
+		echo "$diff" | vimcat | less -F -R
 	else
-		echo "$diff"
+		echo "$diff" | less -F
 	fi
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
