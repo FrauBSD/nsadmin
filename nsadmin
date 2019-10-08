@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-08 13:42:59 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-08 13:50:32 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -752,6 +752,7 @@ genrev()
 			done
 #?			echo # Testing -- Devin
 		done
+		echo
 
 		for file in .new-*; do
 			[ -e "$file" ] || continue
@@ -1268,6 +1269,7 @@ verify()
 	diff=$( rcsdiff -u "$file" )
 	echo "$diff"
 	echo "$diff" | awk '$0="  "$0' >> "$log"
+	echo >> "$log"
 
 	echo
 	echo
@@ -1355,6 +1357,7 @@ vprompt()
 	diff=$( rcsdiff -u "$file" )
 	echo "$diff"
 	echo "$diff" | awk '$0="  "$0' >> "$log"
+	echo >> "$log"
 
 	echo
 	printf " Accept these changes [(y)es | (n)o | (E)dit]: "
