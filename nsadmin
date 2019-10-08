@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-08 13:50:32 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-08 13:55:16 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -130,6 +130,8 @@ syncall=	# -a
 : ${views:=$pgm}
 
 ############################################################ FUNCTIONS
+
+have(){ type "$@" > /dev/null 2>&1; }
 
 # usage
 #
@@ -1267,7 +1269,11 @@ verify()
 
 	echo "$res" | tee -a "$log"
 	diff=$( rcsdiff -u "$file" )
-	echo "$diff"
+	if have vimcat; then
+		echo "$diff" | vimcat
+	else
+		echo "$diff"
+	fi
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
 
@@ -1355,7 +1361,11 @@ vprompt()
 	EOF
 
 	diff=$( rcsdiff -u "$file" )
-	echo "$diff"
+	if have vimcat; then
+		echo "$diff" | vimcat
+	else
+		echo "$diff"
+	fi
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
 
