@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-06 23:15:17 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-08 10:45:53 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -841,6 +841,7 @@ pushzones()
 verify()
 {
 	local ans
+	local diff
 	local file="$1"
 	local res
 
@@ -871,7 +872,9 @@ verify()
 	echo
 
 	echo "$res" | tee -a "$log"
-	rcsdiff -u "$file" | tee -a "$log"
+	diff=$( rcsdiff -u "$file" )
+	echo "$diff"
+	echo "$diff" | awk '$0="  "$0' >> "$log"
 
 	echo
 	echo
@@ -945,6 +948,7 @@ viewtest()
 vprompt()
 {
 	local ans
+	local diff
 	local file="$1"
 
 	clear
@@ -955,7 +959,9 @@ vprompt()
 
 	EOF
 
-	rcsdiff -u "$file" | tee -a "$log"
+	diff=$( rcsdiff -u "$file" )
+	echo "$diff"
+	echo "$diff" | awk '$0="  "$0' >> "$log"
 
 	echo
 	printf " Accept these changes [(y)es | (n)o | (E)dit]: "
