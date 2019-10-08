@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-08 13:55:16 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-08 15:53:38 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -575,12 +575,7 @@ editmaster()
 {
 	local file="$1"
 
-	cat >> "$log" <<-EOF
-	$sepdbl
-	Editing $file
-	$sepdbl
-
-	EOF
+	log -d "Editing $file"
 
 	cd "$nsadmindir"
 	checkout "$file"
@@ -623,13 +618,8 @@ predit()
 
 	sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
 
-	cat > "$log" <<-EOF
-
-	$sep
-	 Starting: $( date )
-	$sep
-
-	EOF
+	echo > "$log"
+	log " Starting: $( date )"
 
 	mkdir -p "$tmp"
 }
@@ -698,7 +688,7 @@ genmaster()
 		zonetest
 		[ "$failfile" ] || break
 
-		printf "\nPress return when ready to re-edit."
+		printf "\n\e[1mPress return when ready to re-edit.\e[m"
 		stty -echo
 		read ans # ignored
 		stty echo
@@ -746,9 +736,10 @@ genrev()
 		local zone2rev_debug=
 		[ "$sync" ] && zone2rev_debug=-d
 		for file in $list; do
-			echo "  [$file]"
+			printf "  \e[2m[$file]\e[m\n"
 			for subnet in $subnets; do
-#?				echo "  -> $subnet" # Testing -- Devin
+#?				printf "  \e[3m-> $subnet\e[m\n"
+#?					# Testing -- Devin
 				zone2rev -S $zone2rev_debug \
 					-v "$view" -s "$subnet" "$file"
 			done
@@ -808,7 +799,7 @@ genzone()
 		cd "$tmp/$view/master"
 
 		for file in $list; do
-			echo "  -> $file"
+			printf "  \e[2m-> $file\e[m\n"
 			origin="$file."
 
 			awk 'sub(/^\\t/,"\t")||1' > "$file" <<-EOF
@@ -890,13 +881,7 @@ dnsreload()
 	local view
 
 #?	clear # Testing -- Parker
-	cat <<-EOF
-	$sep
-	# nsadmin: Local Bind Reload
-	$sep
-
-	EOF
-
+	sep "# nsadmin: Local Bind Reload"
 	msg "Reloading Bind: $( date )"
 
 	echo
@@ -942,7 +927,7 @@ dnsreload()
 	update=0 # successful update/reload
 }
 
-# fatal
+# fatal $text ...
 #
 # Generate a fatal error message and exit this program.
 #
@@ -955,18 +940,59 @@ fatal()
 	exit 1
 }
 
-# msg
+# sep [-dn] [-c color] $text ...
 #
-# Provide a supplied message to the user and the log file.
+# Generate a separator on stdout.
+#
+sep()
+{
+	local color="34;"
+	local sepsep="$sep"
+	local OPTIND=1 OPTARG flag
+
+	while getopts c:dn flag; do
+		case "$flag" in
+		c) color="$OPTARG${OPTARG:+;}" ;;
+		d) sepsep="$sepdbl" ;;
+		n) sepsep= ;;
+		esac
+	done
+	shift $(( $OPTIND - 1 ))
+
+	printf "\e[%s1m%s\n%s\n%s\n\e[m\n" "$color" "$sepsep" "$*" "$sepsep"
+} 
+
+# log [-dn] $text ...
+#
+# Generate a separator in the log.
+#
+log()
+{
+	local logsep="$sep"
+	local OPTIND=1 OPTARG flag
+
+	while getopts dn flag; do
+		case "$flag" in
+		d) logsep="$sepdbl" ;;
+		n) logsep= ;;
+		esac
+	done
+	shift $(( $OPTIND - 1 ))
+
+	printf "%s\n%s\n%s\n\n" "$logsep" "$*" "$logsep" >> "$log"
+} 
+
+# msg $text ...
+#
+# Generate a message in terminal, log file, and syslog.
 #
 msg()
 {
-	logger -p user.info -t Info "$*"
-	cat <<-EOF | tee -a "$log"
+	local msg="$*"
 
-	 $*
-
-	EOF
+	printf "\n%s\n\n" "$msg"
+	printf "\n%s\n\n" "$msg" >> "$log"
+	logger -p user.info -t Info "$msg"
 }
 
 # sigquit
@@ -975,6 +1001,7 @@ msg()
 #
 sigquit()
 {
+	local date
 	local excl
 	local file
 	local res
@@ -1015,12 +1042,10 @@ sigquit()
 		subj="nsadmin: $( date ): $USER"
 	fi
 
-	echo
+	date=$( date )
+	sep -n -c 2 " Finished: $date"
 	echo >> "$log"
-	echo "$sep" >> "$log"
-	echo " Finished: $( date )" | tee -a "$log"
-	echo "$sep" >> "$log"
-	echo >> "$log"
+	log " Finished: $date"
 	cat "$log" | mail -s "$subj" "$admin"
 
 	sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
@@ -1059,7 +1084,7 @@ zonemenu()
 	while :; do
 		zonelist
 
-		printf "\n Please choose a zone to"
+		printf "\n\e[1m Please choose a zone to"
 		if [ "$editmode" ]; then
 			printf " edit "
 		elif [ "$sync" ]; then
@@ -1067,7 +1092,7 @@ zonemenu()
 		else
 			printf " view "
 		fi
-		printf "or 'q' to quit: "
+		printf "or 'q' to quit: \e[m"
 		read zone
 
 		if [ "$zone" = Q ] || [ "$zone" = q ]; then
@@ -1170,12 +1195,7 @@ pushzones()
 	cwd="$PWD"
 
 #?	clear # Testing -- Parker
-	cat <<-EOF
-	$sep
-	# nsadmin: Zone Push
-	$sep
-
-	EOF
+	sep "# nsadmin: Zone Push"
 	msg " Executing local Push:"
 
 	msg "	Backing up previous versions: $( date )"
@@ -1209,12 +1229,7 @@ pushzones()
 
 	for slave in $slaves; do
 #?		clear # Testing -- Parker
-		cat <<-EOF
-		$sep
-		# nsadmin: Zone Push
-		$sep
-
-		EOF
+		sep "# nsadmin: Zone Push"
 		msg " Executing remove push to $slave: $( date )"
 
 		msg "	Copying zone tarball to $slave: $( date )"
@@ -1257,13 +1272,7 @@ verify()
 	fi
 
 	clear
-	cat <<-EOF
-	$sep
-	# nsadmin: Verify Failure
-	$sep
-
-	EOF
-
+	sep "# nsadmin: Verify Failure"
 	msg "ERROR: incorrect A/AAAA record format"
 	echo
 
@@ -1353,12 +1362,7 @@ vprompt()
 	local file="$1"
 
 	clear
-	cat <<-EOF
-	$sep
-	# nsadmin: $file Changes
-	$sep
-
-	EOF
+	sep "# nsadmin: $file changes"
 
 	diff=$( rcsdiff -u "$file" )
 	if have vimcat; then
@@ -1369,8 +1373,7 @@ vprompt()
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
 
-	echo
-	printf " Accept these changes [(y)es | (n)o | (E)dit]: "
+	printf "\n\n \e[1mAccept these changes [(y)es | (n)o | (E)dit]:\e[m "
 	read ans
 	echo
 
@@ -1408,13 +1411,7 @@ zonelist()
 	local zone
 
 	clear
-
-	cat <<-EOF
-	$sep
-	# nsadmin: Zone List
-	$sep
-
-	EOF
+	sep "# nsadmin: Zone List"
 
 	for zone in [a-z0-9]*; do
 		[ -e "$zone" ] || continue
@@ -1426,9 +1423,9 @@ zonelist()
 		fi
 
 		cnt=$(( ${#zone} + 1 ))
-		if [ $cnt -lt 8 ]; then
+		if [ $cnt -lt 7 ]; then
 			tab='\t\t\t'
-		elif [ $cnt -lt 16 ]; then
+		elif [ $cnt -lt 15 ]; then
 			tab='\t\t'
 		else
 			tab='\t'
@@ -1437,10 +1434,10 @@ zonelist()
 			echo
 			col=0
 		fi
-		printf " %s$tab" "$zone"
+		printf "  %s$tab" "$zone"
 		col=$(( $col + 1 ))
 	done
-	echo
+	printf "\n\n"
 }
 
 # zonetest
@@ -1462,11 +1459,8 @@ zonetest()
 		IFS="$_IFS"
 
 #?		clear # Testing -- Devin
+		sep "# nsadmin: Zone Tests"
 		cat <<-EOF
-		$sep
-		# nsadmin: Zone Tests
-		$sep
-
 		 View:	$1
 		 Type:	$2
 		 Zone:	$3
