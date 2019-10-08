@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-06 23:14:10 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/Makefile 2019-10-08 13:42:59 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -19,8 +19,7 @@ MKDIR_P=	mkdir -p
 
 ############################################################ OBJECTS
 
-NSADMIN=	nsadmin \
-		zone2rev.awk
+NSADMIN=	nsadmin
 NSADMIN_CONF=	nsadmin.conf
 
 NSSLAVE=	nsslave
