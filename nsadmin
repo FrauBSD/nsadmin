@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 13:54:40 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 14:14:08 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,10 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.0.3
+# 		- Fix rev map synchronization with `-s'
+# 		- Trim trailing whitespace on code lines
+# 		- Fix spurious error from `cd -' in sigquit()
 # 	Oct 2019: Release 4.0.2
 # 		- Fix permission issues for members of $bindgroup
 # 	Oct 2019: Release 4.0.1
@@ -134,7 +138,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.0.2 $'
+VERSION='$Version: 4.0.3 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -582,7 +586,7 @@ zone2rev()
 	local view=
 	local OPTIND=1 OPTARG flag
 
-	while getopts cdilSsVv: flag; do
+	while getopts cdilSs:Vv: flag; do
 		case "$flag" in
 		c) console=1 ;;
 		d) debug=1 ;;
@@ -1020,7 +1024,7 @@ sep()
 	shift $(( $OPTIND - 1 ))
 
 	printf "\e[%s1m%s\n%s\n%s\n\e[m\n" "$color" "$sepsep" "$*" "$sepsep"
-} 
+}
 
 # log [-dn] $text ...
 #
@@ -1040,7 +1044,7 @@ log()
 	shift $(( $OPTIND - 1 ))
 
 	printf "%s\n%s\n%s\n\n" "$logsep" "$*" "$logsep" >> "$log"
-} 
+}
 
 # msg $text ...
 #
@@ -1128,7 +1132,7 @@ sigquit()
 		[ "$skip" ] || chmod a-w "$file" > /dev/null 2>&1
 	done
 
-	cd - > /dev/null
+	cd - > /dev/null 2>&1
 
 	ransig=1
 }
