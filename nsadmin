@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 14:25:04 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 16:00:24 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.1
+# 		- Add support for inline custom TTL preceding protocol family
 # 	Oct 2019: Release 4.0.4
 # 		- Do not show contextual diff before review
 # 		- Add whitespace after main menu prompt
@@ -141,7 +143,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.0.4 $'
+VERSION='$Version: 4.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -483,12 +485,22 @@ BEGIN {
 		if ($1 ~ "^" file) continue
 		if (/;*VIEW:/ && $0 !~ view) continue
 		if (/\*/) continue
-		if ((family = toupper($2)) == "IN") {
-			type = toupper($3)
-			ip = $4
+		if ($2 ~ /^[[:digit:]]+$/) {
+			if ((family = toupper($3)) == "IN") {
+				type = toupper($4)
+				ip = $5
+			} else {
+				type = family
+				ip = $4
+			}
 		} else {
-			type = family
-			ip = $3
+			if ((family = toupper($2)) == "IN") {
+				type = toupper($3)
+				ip = $4
+			} else {
+				type = family
+				ip = $3
+			}
 		}
 		if (type == "A") {
 			if ((errno = validate_ipaddr4(ip)) != 0) {
