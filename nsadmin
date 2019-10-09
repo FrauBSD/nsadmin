@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 14:14:08 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 14:22:27 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.0.4
+# 		- Do not show contextual diff before review
+# 		- Add whitespace after main menu prompt
 # 	Oct 2019: Release 4.0.3
 # 		- Fix rev map synchronization with `-s'
 # 		- Trim trailing whitespace on code lines
@@ -1158,6 +1161,7 @@ zonemenu()
 		fi
 		printf "or 'q' to quit: \e[m"
 		read zone
+		echo
 
 		if [ "$zone" = Q ] || [ "$zone" = q ]; then
 			break
@@ -1326,7 +1330,7 @@ verify()
 	local file="$1"
 	local res
 
-	if rcsdiff -q "$file"; then
+	if rcsdiff -q "$file" > /dev/null 2>&1; then
 		ci -u "$file" > /dev/null 2>&1
 		msg "No changes made to $file."
 		stty -echo
