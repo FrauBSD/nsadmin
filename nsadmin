@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 14:22:27 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 14:25:04 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -141,7 +141,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.0.3 $'
+VERSION='$Version: 4.0.4 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
