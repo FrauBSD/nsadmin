@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 13:10:58 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 13:54:40 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.0.2
+# 		- Fix permission issues for members of $bindgroup
 # 	Oct 2019: Release 4.0.1
 # 		- Fix hang on stdin from RCS co when file is writable
 # 	Oct 2019: Release 4.0
@@ -132,7 +134,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.0.1 $'
+VERSION='$Version: 4.0.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -653,6 +655,8 @@ getlock()
 #
 predit()
 {
+	local dir
+
 	trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
 
 	msg "$USER starting edits: $( date )"
@@ -662,7 +666,19 @@ predit()
 	echo > "$log"
 	log " Starting: $( date )"
 
-	mkdir -p "$tmp"
+	mkdir -p -m 0770 "$tmp"
+
+	# Make tmp directory owned by BIND user/group and group-writable
+	dir="$tmp"
+	case "$dir" in
+	*/) dir="${dir%/}" ;;
+	esac
+	dir="${dir%/*}"
+	case "$dir" in
+	/) : skip ;;
+	*) sudo chown -R "$binduser:$bindgroup" "$dir"
+	   sudo chmod -R g+w "$dir"
+	esac
 }
 
 # clear
@@ -832,7 +848,7 @@ genzone()
 	local view
 
 	for view in $views; do
-		mkdir -p "$tmp/$view/master" "$tmp/$view/rev"
+		mkdir -p -m 0770 "$tmp/$view/master" "$tmp/$view/rev"
 	done
 
 	for view in $views; do
@@ -873,6 +889,9 @@ genzone()
 
 		cd - > /dev/null
 	done
+
+	sudo chown -R "$binduser:$bindgroup" "$tmp/$view"
+	sudo chmod -R g+w "$tmp/$view"
 }
 
 # revunq file
@@ -1175,10 +1194,16 @@ zonemenu()
 checkin()
 {
 	local cnt=1
+	local file
 
 	while eval [ \"\$colist_$cnt\" ]; do
+		eval file=\"\$colist_$cnt\"
 		echo "$USER: $( date )" |
-			eval ci -u \"\$colist_$cnt\" #? \> /dev/null 2\>\&1
+			ci -u "$file" #? \> /dev/null 2\>\&1
+		sudo chown "$binduser:$bindgroup" "$nsadmindir/RCS/$file,v"
+		sudo chown "$binduser:$bindgroup" "$nsadmindir/$file"
+		sudo chmod 0660 "$nsadmindir/RCS/$file,v"
+		sudo chmod 0440 "$nsadmindir/$file"
 		cnt=$(( $cnt + 1 ))
 	done
 }
@@ -1198,6 +1223,8 @@ checkout()
 	done
 
 	eval colist_$cnt=\"\$file\"
+	sudo chown "$USER" "$file"
+	sudo chmod 0440 "$file"
 	:| co -l "$file" > /dev/null 2>&1
 }
 
@@ -1256,13 +1283,13 @@ pushzones()
 	msg "	Pushing local zones: $( date )"
 	cd "$tmp"
 	sudo chown -R "$binduser:$bindgroup" *
-	sudo chmod -R g-w *
+	sudo chmod -R g+w *
 	find . -type f -exec sudo cp {} "$nameddir/{}" \;
 	cd - > /dev/null
 
 	msg "	Building zone tarball: $( date )"
 	cd "$tmp"
-	tar czf zone.tgz *
+	tar czpf zone.tgz *
 	cd - > /dev/null
 #?	sleep 2 # Testing -- Parker
 
