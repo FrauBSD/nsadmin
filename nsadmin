@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 12:17:51 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 12:38:37 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,28 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.0
+# 		- Replace bash arrays with POSIX /bin/sh syntax
+# 		- Do not overwrite config files if they exist on install
+# 		- Change umask to 0022
+# 		- Remove obsolete code
+# 		- Improve check for duplicate running instances
+# 		- Create required directories if they do not exist
+# 		- Optimize usage of "cd" to fix errors
+# 		- Improved debugging
+# 		- Renamed *-var.inc to *.conf and cleanup
+# 		- Merge *.inc files and zone2rev.awk into nsadmin
+# 		- Set default view [required] to program basename (nsadmin)
+# 		- Add support for `IN' protocol family in master zones
+# 		- Fix `-l' to work with `-s'
+# 		- Prevent Outlook from eating blank lines in diffs
+# 		- Merge nsslave-centos7 into nsslave
+# 		- Add support for vimcat
+# 		- Add limited ANSI coloring to console output
+# 		- Add support for `less -F' when viewing diffs
+# 		- Add `-v' to get version
+# 	Aug 2019: Release 3.2
+# 		- Add Makefile
 # 	Jul 2019: Release 3.1
 # 		- Initial Public release.
 # 		- Enable restriction to prevent anonymous root access.
@@ -107,6 +129,8 @@
 . /etc/nsadmin.conf || exit
 
 ############################################################ GLOBALS
+
+VERSION='$Version: 4.0 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1532,14 +1556,17 @@ zonetest()
 #
 # Process command-line options
 #
-while getopts "aehl:n:s?" flag; do
+while getopts "aehl:n:sv?" flag; do
 	case "$flag" in
 	a) syncall=1 ;;
 	e) editmode=1 ;;
 	l) updzones=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
 	n) slaves=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
 	s) sync=1 ;;
-	*) usage ;; # NOTREACHED
+	v) VERSION="${VERSION#*: }"
+		echo "${VERSION% $}"
+		exit $SUCCESS ;;
+	*) usage # NOTREACHED
 	esac
 done
 
