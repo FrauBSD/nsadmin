@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-08 16:02:16 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 12:07:01 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -128,6 +128,22 @@ syncall=	# -a
 # Configuration defaults
 #
 : ${views:=$pgm}
+
+#
+# Miscellaneous
+#
+editmode=				# Run in edit mode
+failfile=				# File that failed zonetest()
+failtype=				# Type of file that failed
+ransig=					# Ran sigquit() or not
+sep=$( printf %75s | tr " " - )		# Separator
+sepdbl=$( printf %20s | tr " " = )	# Double separator
+subnets=				# Subnets changed for rev maps
+sync=					# Run in sync mode
+update=					# Stage of master file updates
+updzones=				# Updated zones
+vfail=					# Verify failed
+views=					# Views to create
 
 ############################################################ FUNCTIONS
 
@@ -1191,8 +1207,6 @@ pushzones()
 	local res
 	local slave
 	local view
-
-	cwd="$PWD"
 
 #?	clear # Testing -- Parker
 	sep "# nsadmin: Zone Push"
