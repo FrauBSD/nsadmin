@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 16:00:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-09 16:46:52 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.1.1
+# 		- Lower sync verbosity
 # 	Oct 2019: Release 4.1
 # 		- Add support for inline custom TTL preceding protocol family
 # 	Oct 2019: Release 4.0.4
@@ -143,7 +145,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.1 $'
+VERSION='$Version: 4.1.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -810,7 +812,7 @@ genrev()
 		done
 
 		local zone2rev_debug=
-		[ "$sync" ] && zone2rev_debug=-d
+#?		[ "$sync" ] && zone2rev_debug=-d # Testing -- Devin
 		for file in $list; do
 			printf "  \e[2m[$file]\e[m\n"
 			for subnet in $subnets; do
