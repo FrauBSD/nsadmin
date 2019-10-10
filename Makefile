@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-10 12:43:05 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/Makefile 2019-10-10 12:48:56 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -33,12 +33,16 @@ all install:
 	@printf "\tmake install-slave\tInstall nsslave\n"
 
 install-admin:
+	$(MKDIR_P) $(BINDIR)
 	$(CP_F) $(NSADMIN) $(BINDIR)/
+	$(MKDIR_P) $(CONFDIR)
 	$(CP_F) $(NSADMIN_CONF) $(CONFDIR)/$(NSADMIN_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSADMIN_CONF).sample $(CONFDIR)/$(NSADMIN_CONF)
 
 install-slave:
+	$(MKDIR_P) $(BINDIR)
 	$(CP_F) $(NSSLAVE) $(BINDIR)/
+	$(MKDIR_P) $(CONFDIR)
 	$(CP_F) $(NSSLAVE_CONF) $(CONFDIR)/$(NSSLAVE_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSSLAVE_CONF).sample $(CONFDIR)/$(NSSLAVE_CONF)
 
