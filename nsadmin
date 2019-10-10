@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-10 11:07:26 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-10 11:34:41 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.2.2
+# 		- Add support for vimcat in read-only view mode
+# 		- Improve vimcat support with PAGER in all modes
 # 	Oct 2019: Release 4.2.1
 # 		- Show progress as we generate rev maps
 # 		- Only checkin sync'd files on exit if they pass syntax check
@@ -153,7 +156,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.2.1 $'
+VERSION='$Version: 4.2.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1217,7 +1220,11 @@ zonemenu()
 				updzones="$zone"
 			fi
 		else
-			${PAGER:-less} "$zone"
+			if have vimcat; then
+				vimcat "$zone" | ${PAGER:-less -r}
+			else
+				${PAGER:-less} "$zone"
+			fi
 		fi
 	done
 }
@@ -1383,9 +1390,9 @@ verify()
 	echo "$res" | tee -a "$log"
 	diff=$( rcsdiff -u "$file" )
 	if have vimcat; then
-		echo "$diff" | vimcat | tr -d '\r' | less -F -R
+		echo "$diff" | vimcat | ${PAGER:-less -F -r}
 	else
-		echo "$diff" | less -F
+		echo "$diff" | ${PAGER:-less -F}
 	fi
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
@@ -1476,9 +1483,9 @@ vprompt()
 
 	diff=$( rcsdiff -u "$file" )
 	if have vimcat; then
-		echo "$diff" | vimcat | tr -d '\r' | less -F -R
+		echo "$diff" | vimcat | ${PAGER:-less -F -r}
 	else
-		echo "$diff" | less -F
+		echo "$diff" | ${PAGER:-less -F}
 	fi
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
