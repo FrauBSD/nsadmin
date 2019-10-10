@@ -1,0 +1,65 @@
+// -*- tab-width: 4 -*-        ;; Emacs
+// vi: set noexpandtab         :: Vi/ViM
+// vi: set filetype=javascript ::
+{
+	//////////////////////////////////////////////////// HEADER
+
+	"name":"nsslave",
+	"origin":"fraubsd/nsslave",
+	"categories":["fraubsd"],
+
+	"comment":"nsslave",
+	"licenselogic":"single",
+	"licenses":["BSD"],
+	"version":"1.0",
+
+	"maintainer":"dteske@freebsd.org",
+	"www":"https://www.fraubsd.org/nsadmin",
+
+	"arch":"freebsd",
+	"prefix":"/",
+
+	//////////////////////////////////////////////////// DESCRIPTION
+
+	"desc":"DNS management software.
+
+WWW: https://www.fraubsd.org/nsadmin",
+
+	//////////////////////////////////////////////////// FILES
+
+	"files":[
+		"/usr/local/bin/nsslave",
+		"/usr/local/etc/nsslave.conf.sample",
+	],
+
+	//////////////////////////////////////////////////// DIRECTORIES
+
+	"directories":{
+		"/usr":"n",
+		"/usr/local":"n",
+		"/usr/local/bin":"n",
+		"/usr/local/etc":"n",
+	},
+
+	//////////////////////////////////////////////////// SCRIPTS
+
+	"scripts":{
+		"post-install":"
+			conf=/usr/local/etc/nsslave.conf
+			[ -e $conf ] || cp $conf.sample $conf
+		",
+		"pre-deinstall":"
+			conf=/usr/local/etc/nsslave.conf
+			cmp -s $conf.sample $conf && rm -f $conf
+		",
+	}
+
+}
+////////////////////////////////////////////////////////////////////////////////
+// END
+////////////////////////////////////////////////////////////////////////////////
+//
+// $Copyright: 2016-2018 Devin Teske. All rights reserved. $
+// $FrauBSD: nsadmin/freebsd/nsslave/MANIFEST 2019-10-10 13:22:03 -0700 freebsdfrau $
+//
+////////////////////////////////////////////////////////////////////////////////

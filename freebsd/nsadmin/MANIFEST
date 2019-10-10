@@ -1,0 +1,65 @@
+// -*- tab-width: 4 -*-        ;; Emacs
+// vi: set noexpandtab         :: Vi/ViM
+// vi: set filetype=javascript ::
+{
+	//////////////////////////////////////////////////// HEADER
+
+	"name":"nsadmin",
+	"origin":"fraubsd/nsadmin",
+	"categories":["fraubsd"],
+
+	"comment":"nsadmin",
+	"licenselogic":"single",
+	"licenses":["BSD"],
+	"version":"1.0",
+
+	"maintainer":"dteske@freebsd.org",
+	"www":"https://www.fraubsd.org/nsadmin",
+
+	"arch":"freebsd",
+	"prefix":"/",
+
+	//////////////////////////////////////////////////// DESCRIPTION
+
+	"desc":"DNS management software.
+
+WWW: https://www.fraubsd.org/nsadmin",
+
+	//////////////////////////////////////////////////// FILES
+
+	"files":[
+		"/usr/local/bin/nsadmin",
+		"/usr/local/etc/nsadmin.conf.sample",
+	],
+
+	//////////////////////////////////////////////////// DIRECTORIES
+
+	"directories":{
+		"/usr":"n",
+		"/usr/local":"n",
+		"/usr/local/bin":"n",
+		"/usr/local/etc":"n",
+	},
+
+	//////////////////////////////////////////////////// SCRIPTS
+
+	"scripts":{
+		"post-install":"
+			conf=/usr/local/etc/nsadmin.conf
+			[ -e $conf ] || cp $conf.sample $conf
+		",
+		"pre-deinstall":"
+			conf=/usr/local/etc/nsadmin.conf
+			cmp -s $conf.sample $conf && rm -f $conf
+		",
+	}
+
+}
+////////////////////////////////////////////////////////////////////////////////
+// END
+////////////////////////////////////////////////////////////////////////////////
+//
+// $Copyright: 2016-2018 Devin Teske. All rights reserved. $
+// $FrauBSD: nsadmin/freebsd/nsadmin/MANIFEST 2019-10-10 13:22:03 -0700 freebsdfrau $
+//
+////////////////////////////////////////////////////////////////////////////////
