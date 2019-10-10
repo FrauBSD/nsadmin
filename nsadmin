@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-10 10:36:33 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-10 11:07:26 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -53,10 +53,16 @@
 # 	  Without password on the slave Bind servers.
 # 	- Users must be placed in the DNSOPS group in sudoers as a
 # 	  result of the commands that require root access.
+# 	  Commands used via sudo: awk chmod chown cp find mv rm service su
 # 	- Users must also belong to the "bind" group in /etc/group to
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.2.1
+# 		- Show progress as we generate rev maps
+# 		- Only checkin sync'd files on exit if they pass syntax check
+# 		- Fix memory leak in genrev()
+# 		- Minimally improve and document sudo support
 # 	Oct 2019: Release 4.2
 # 		- checkin files after sync (-s)
 # 	Oct 2019: Release 4.1.1
@@ -147,7 +153,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.2 $'
+VERSION='$Version: 4.2.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -181,6 +187,7 @@ sep=$( printf %75s | tr " " - )		# Separator
 sepdbl=$( printf %20s | tr " " = )	# Double separator
 subnets=				# Subnets changed for rev maps
 sync=					# Run in sync mode
+synccnt=0				# Number of files sync'd
 update=					# Stage of master file updates
 updzones=				# Updated zones
 vfail=					# Verify failed
@@ -798,11 +805,14 @@ genrev()
 	local excl
 	local file
 	local list
+	local n
 	local origin
 	local rev
 	local revfile
 	local subnet
+	local t
 	local view
+	local zone2rev_debug
 
 	cd "$nsadmindir"
 	for view in $views; do
@@ -813,10 +823,12 @@ genrev()
 			list=$( echo "$list" | sed -e "s/$excl//" )
 		done
 
-		local zone2rev_debug=
+		n=1
+		t=$( set -- $list; echo $# )
+		zone2rev_debug=
 #?		[ "$sync" ] && zone2rev_debug=-d # Testing -- Devin
 		for file in $list; do
-			printf "  \e[2m[$file]\e[m\n"
+			printf "  \e[2m%-30s \e[1m%4u/%-4u\e[m\n" "[$file]" $n $t
 			for subnet in $subnets; do
 #?				printf "  \e[3m-> $subnet\e[m\n"
 #?					# Testing -- Devin
@@ -824,6 +836,7 @@ genrev()
 					-v "$view" -s "$subnet" "$file"
 			done
 #?			echo # Testing -- Devin
+			n=$(( $n + 1 ))
 		done
 		echo
 
@@ -1094,6 +1107,7 @@ sigquit()
 	[ "$ransig" ] && return
 
 	stty echo
+	echo
 
 	LESSSECURE=
 
@@ -1224,8 +1238,8 @@ checkin()
 		eval file=\"\$colist_$cnt\"
 		echo "$USER: $( date )" |
 			ci -u "$file" #? \> /dev/null 2\>\&1
-		sudo chown "$binduser:$bindgroup" "$nsadmindir/RCS/$file,v"
-		sudo chown "$binduser:$bindgroup" "$nsadmindir/$file"
+		sudo chown "$binduser:$bindgroup" \
+			"$nsadmindir/$file" "$nsadmindir/RCS/$file,v"
 		sudo chmod 0660 "$nsadmindir/RCS/$file,v"
 		sudo chmod 0440 "$nsadmindir/$file"
 		cnt=$(( $cnt + 1 ))
@@ -1435,6 +1449,12 @@ viewtest()
 		failfile="$1"
 
 		return
+	fi
+
+	# checkin file on exit in sync mode (-s)
+	if [ "$sync" ];then
+		synccnt=$(( $synccnt + 1 ))
+		eval colist_$synccnt=\"\$1\"
 	fi
 
 	echo "	OK"
@@ -1688,13 +1708,6 @@ fi
 if [ "$sync" ]; then
 	msg "File generation called by sync option."
 	msg "Files: $updzones"
-
-	# checkin requested zones on exit
-	cnt=1
-	for file in $updzones; do
-		eval colist_$cnt=\"\$file\"
-		cnt=$(( $cnt + 1 ))
-	done
 else
 	# We need a description of why this is being done
 	( set -e
