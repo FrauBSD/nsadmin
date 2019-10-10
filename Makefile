@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-10 12:48:56 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/Makefile 2019-10-10 13:34:29 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -13,9 +13,11 @@ NSADMINDIR=	$(CONFDIR)/nsadmin
 
 ############################################################ PATHS
 
+CMP_S=		cmp -s
 CP_F=		cp -f
 CP_N=		cp -n
 MKDIR_P=	mkdir -p
+RM_F=		rm -f
 
 ############################################################ OBJECTS
 
@@ -27,10 +29,12 @@ NSSLAVE_CONF=	nsslave.conf
 
 ############################################################ TARGETS
 
-all install:
+all install uninstall:
 	@printf "Options:\n"
 	@printf "\tmake install-admin\tInstall nsadmin\n"
 	@printf "\tmake install-slave\tInstall nsslave\n"
+	@printf "\tmake uninstall-admin\tUninstall nsadmin\n"
+	@printf "\tmake uninstall-slave\tUninstall nsslave\n"
 
 install-admin:
 	$(MKDIR_P) $(BINDIR)
@@ -45,6 +49,18 @@ install-slave:
 	$(MKDIR_P) $(CONFDIR)
 	$(CP_F) $(NSSLAVE_CONF) $(CONFDIR)/$(NSSLAVE_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSSLAVE_CONF).sample $(CONFDIR)/$(NSSLAVE_CONF)
+
+uninstall-admin:
+	$(RM_F) $(BINDIR)/$(NSADMIN)
+	CONF=$(CONFDIR)/$(NSADMIN_CONF); \
+		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
+	$(RM_F) $(CONFDIR)/$(NSADMIN_CONF).sample
+
+uninstall-slave:
+	$(RM_F) $(BINDIR)/$(NSSLAVE)
+	CONF=$(CONFDIR)/$(NSSLAVE_CONF); \
+		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
+	$(RM_F) $(CONFDIR)/$(NSSLAVE_CONF).sample
 
 ################################################################################
 # END
