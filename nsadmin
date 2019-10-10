@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-09 16:46:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-10 10:36:33 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -57,6 +57,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # History:
+# 	Oct 2019: Release 4.2
+# 		- checkin files after sync (-s)
 # 	Oct 2019: Release 4.1.1
 # 		- Lower sync verbosity
 # 	Oct 2019: Release 4.1
@@ -145,7 +147,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.1.1 $'
+VERSION='$Version: 4.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1686,6 +1688,13 @@ fi
 if [ "$sync" ]; then
 	msg "File generation called by sync option."
 	msg "Files: $updzones"
+
+	# checkin requested zones on exit
+	cnt=1
+	for file in $updzones; do
+		eval colist_$cnt=\"\$file\"
+		cnt=$(( $cnt + 1 ))
+	done
 else
 	# We need a description of why this is being done
 	( set -e
