@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-12 14:59:41 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-12 16:18:52 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.4.1
+# 		- Remove log if exiting due to running as root
 # 	Oct 2019: Release 4.4
 # 		- Show lock file location when locked
 # 		- Do not use sudo in sigquit() if first use fails
@@ -162,7 +164,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.4 $'
+VERSION='$Version: 4.4.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -193,6 +195,7 @@ failfile=				# File that failed zonetest()
 failtype=				# Type of file that failed
 locked=					# Lock obtained by getlock()
 ransig=					# Ran sigquit() or not
+rootfail=				# Exited due to running as root
 sep=$( printf %75s | tr " " - )		# Separator
 sepdbl=$( printf %20s | tr " " = )	# Double separator
 subnets=				# Subnets changed for rev maps
@@ -1050,7 +1053,8 @@ fatal()
 	echo
 	echo " Fatal Error: $*" | tee -a "$log"
 	echo
-	exit 1
+	[ "$rootfail" ] && rm -f "$log"
+	exit $FAILURE
 }
 
 # sep [-dn] [-c color] $text ...
@@ -1653,9 +1657,11 @@ zonetest()
 
 ############################################################ MAIN
 
-# $USER is required for all logging and auditability.
-[ "$USER" = root ] &&
+# $USER required for all logging and auditability
+if [ "${USER:=$( id -nu )}" = root ]; then
+	rootfail=1
 	fatal "root is forbidden to use nsadmin" # NOTREACHED
+fi
 
 #
 # Process command-line options
