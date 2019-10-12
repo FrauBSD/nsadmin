@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.3
+Version: 4.4
 Release: 1
 Buildarch: noarch
 
@@ -78,5 +78,7 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sat Oct 12 2019 Devin Teske <dteske@fraubsd.org> 4.4-1
+- b344d3a Improve locking, add sudo fault tolerance
 * Thu Oct 10 2019 Devin Teske <dteske@fraubsd.org> 4.3-1
 - Package created.
