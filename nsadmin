@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-10 12:31:02 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-12 14:59:41 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,10 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.4
+# 		- Show lock file location when locked
+# 		- Do not use sudo in sigquit() if first use fails
+# 		- Release lock if exiting due to sudo failure
 # 	Oct 2019: Release 4.3
 # 		- Fix sync (-s) based checkin from automated edits
 # 	Oct 2019: Release 4.2.2
@@ -158,7 +162,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.3 $'
+VERSION='$Version: 4.4 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -187,10 +191,12 @@ syncall=	# -a
 editmode=				# Run in edit mode
 failfile=				# File that failed zonetest()
 failtype=				# Type of file that failed
+locked=					# Lock obtained by getlock()
 ransig=					# Ran sigquit() or not
 sep=$( printf %75s | tr " " - )		# Separator
 sepdbl=$( printf %20s | tr " " = )	# Double separator
 subnets=				# Subnets changed for rev maps
+sudofail=				# No sudo in sigquit() if failed
 sync=					# Run in sync mode
 synccnt=0				# Number of files sync'd
 update=					# Stage of master file updates
@@ -675,6 +681,7 @@ getlock()
 
 	if [ -f "$lock" ]; then
 		res=$( ls -l "$lock" | awk '{print $3}' )
+		printf "\e[2mlock: %s\e[m\n" "$lock"
 		fatal "lock file exists, owner is $res" # NOTREACHED
 	fi
 
@@ -682,6 +689,7 @@ getlock()
 	set -C
 	echo $$ > "$lock" || fatal "could not create '$lock'" # NOTREACHED
 	[ "$clobber" ] && set +C
+	locked=1
 }
 
 # predit
@@ -696,7 +704,11 @@ predit()
 
 	msg "$USER starting edits: $( date )"
 
-	sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
+	if ! sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
+	then
+		sudofail=rm
+		exit $FAILURE
+	fi
 
 	echo > "$log"
 	log " Starting: $( date )"
@@ -1150,10 +1162,16 @@ sigquit()
 	log " Finished: $date"
 	cat "$log" | mail -s "$subj" "$admin"
 
-	sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
+	if [ ! "$sudofail" ]; then
+		sudo rm -rf "$lock" "$log" "$tmp" \
+			.bak-* .revunq .updzones .view*
 
-	# XXX Save the older version in case of emergency.
-	#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
+		# XXX Save the older version in case of emergency.
+		#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
+	elif [ "$locked" ]; then
+		rm -f "$lock"
+		locked=
+	fi
 
 	#
 	# Make sure files are not left in a write state as it will
@@ -1702,7 +1720,10 @@ fi
 #
 if [ ! -e "$nsadmindir/RCS" ]; then
 	mkdir -p -m 0770 "$nsadmindir/RCS"
-	sudo chown "$bindgroup:$binduser" "$nsadmindir/RCS"
+	if ! sudo chown "$bindgroup:$binduser" "$nsadmindir/RCS"; then
+		sudofail=chown
+		exit $FAILURE
+	fi
 fi
 
 # Make sure only one person is building zone files at a time
