@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 15:30:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 15:32:26 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,7 @@
 # Version History:
 # 	Oct 2019:
 # 		- Defer loading of config until after processing options
+# 		- Defer check for root until after options processing
 # 	Oct 2019: Release 4.5.1
 # 		- Remove confusing line numbers from named-checkzone output
 # 		- Comments and other Minor edits
@@ -1727,12 +1728,6 @@ zonetest()
 
 ############################################################ MAIN
 
-# $USER required for all logging and auditability
-if [ "${USER:=$( id -nu )}" = root ]; then
-	rootfail=1
-	fatal "root is forbidden to use nsadmin" # NOTREACHED
-fi
-
 #
 # Process command-line options
 #
@@ -1750,6 +1745,12 @@ while getopts "aehl:n:sv?" flag; do
 	esac
 done
 shift $(( OPTIND - 1 ))
+
+# $USER required for all logging and auditability
+if [ "${USER:=$( id -nu )}" = root ]; then
+	rootfail=1
+	fatal "root is forbidden to use nsadmin" # NOTREACHED
+fi
 
 #
 # Load configs
