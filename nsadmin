@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 16:28:19 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 16:40:18 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.5.5
+# 		- Use BSD compatible ANSI escape sequences for printf
 # 	Oct 2019: Release 4.5.4
 # 		- Fix config
 # 	Oct 2019: Release 4.5.3
@@ -170,7 +172,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.5.4 $'
+VERSION='$Version: 4.5.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -695,7 +697,7 @@ getlock()
 
 	if [ -f "$lock" ]; then
 		res=$( ls -l "$lock" | awk '{print $3}' )
-		printf "\e[2mlock: %s\e[m\n" "$lock"
+		printf "\033[2mlock: %s\033[m\n" "$lock"
 		fatal "lock file exists, owner is $res" # NOTREACHED
 	fi
 
@@ -753,7 +755,7 @@ clear()
 	set -- ${size:-24 80}
 	rows="$1"
 	cols="$2"
-	printf "\e[${rows}S\e[H"
+	printf "\033[${rows}S\033[H"
 }
 
 ############################################################ GEN FUNCTIONS
@@ -806,7 +808,7 @@ genmaster()
 		zonetest
 		[ "$failfile" ] || break
 
-		printf "\n\e[1mPress return when ready to re-edit.\e[m"
+		printf "\n\033[1mPress return when ready to re-edit.\033[m"
 		stty -echo
 		read ans # ignored
 		stty echo
@@ -859,10 +861,10 @@ genrev()
 		zone2rev_debug=
 #?		[ "$sync" ] && zone2rev_debug=-d # Testing -- Devin
 		for file in $list; do
-			printf "  \e[2m%-30s \e[1m%4u/%-4u\e[m\n" \
+			printf "  \033[2m%-30s \033[1m%4u/%-4u\033[m\n" \
 				"[$file]" $n $t
 			for subnet in $subnets; do
-#?				printf "  \e[3m-> $subnet\e[m\n"
+#?				printf "  \033[3m-> $subnet\033[m\n"
 #?					# Testing -- Devin
 				zone2rev -S $zone2rev_debug \
 					-v "$view" -s "$subnet" "$file"
@@ -924,7 +926,7 @@ genzone()
 		cd "$tmp/$view/master"
 
 		for file in $list; do
-			printf "  \e[2m-> $file\e[m\n"
+			printf "  \033[2m-> $file\033[m\n"
 			origin="$file."
 
 			awk 'sub(/^\\t/,"\t")||1' > "$file" <<-EOF
@@ -1143,7 +1145,8 @@ sep()
 	done
 	shift $(( $OPTIND - 1 ))
 
-	printf "\e[%s1m%s\n%s\n%s\n\e[m\n" "$color" "$sepsep" "$*" "$sepsep"
+	printf "\033[%s1m%s\n%s\n%s\n\033[m\n" \
+		"$color" "$sepsep" "$*" "$sepsep"
 }
 
 # log [-dn] $text ...
@@ -1275,7 +1278,7 @@ zonemenu()
 	while :; do
 		zonelist
 
-		printf "\n\e[1m Please choose a zone to"
+		printf "\n\033[1m Please choose a zone to"
 		if [ "$editmode" ]; then
 			printf " edit "
 		elif [ "$sync" ]; then
@@ -1283,7 +1286,7 @@ zonemenu()
 		else
 			printf " view "
 		fi
-		printf "or 'q' to quit: \e[m"
+		printf "or 'q' to quit:\033[m "
 		read zone
 		echo
 
@@ -1588,7 +1591,8 @@ vprompt()
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
 
-	printf "\n\n \e[1mAccept these changes [(y)es | (n)o | (E)dit]:\e[m "
+	printf "\n\n"
+	printf " \033[1mAccept these changes [(y)es | (n)o | (E)dit]:\033[m "
 	read ans
 	echo
 
