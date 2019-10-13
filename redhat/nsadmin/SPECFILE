@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.5.5
+Version: 4.5.6
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.6-1
+- 60ec033 Make default slaves empty in config
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.5-1
 - 2ac87c6 Use BSD compatible ANSI escape sequences for printf
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.4-1
