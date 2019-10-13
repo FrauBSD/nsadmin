@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 11:35:02 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 14:33:48 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,10 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.5.1
+# 		- Remove confusing line numbers from named-checkzone output
+# 		- Comments and other Minor edits
+# 		- Fix version
 # 	Oct 2019: Release 4.5
 # 		- Make include files for generated zones and rev maps
 # 	Oct 2019: Release 4.4.1
@@ -150,15 +154,6 @@
 # 		  known as sync.
 # 	Apr 2006: Release 1.0
 # 		- Basic interface and zone generation.
-# --------------------------------------------------------------------
-# To Do:
-# 	- If a new rev map is created or a new zone file appears,
-# 	  prompt the user to add rev map or zone to the include files.
-# 		- Make this functionality require a command-line flag.
-# 	- Change testing of variable list additions into a function.
-# 	- zonetest():
-# 		- named-checkzone returns line numbers of the final
-# 		  zone file. Subtract 8 to get master file line number.
 #
 ############################################################ INCLUDES
 
@@ -166,7 +161,7 @@
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.4.1 $'
+VERSION='$Version: 4.5.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1690,7 +1685,19 @@ zonetest()
 					name="$name.in-addr.arpa"
 				fi
 			fi
-			named-checkzone "$name" "$file"
+			( named-checkzone "$name" "$file" 2>&1;
+			  echo :EXIT:$?
+			) | awk '
+				sub(/^:EXIT:/, "") { status = $0; next }
+				match($0, /^[^[:space:]:]+:[0-9]+:/) {
+					prefix = substr($0, 1, RLENGTH - 1)
+					suffix = substr($0, RSTART + RLENGTH)
+					sub(/[0-9]+$/, "", prefix)
+					sub(".*/", "", prefix)
+					$0 = prefix suffix
+				}1
+				END { exit status }
+			' # END-QUOTE
 		) && [ $( echo "$res" | wc -l ) -gt 2 ]; then
 			failtype="$2"
 			failfile="$3"
@@ -1740,6 +1747,7 @@ while getopts "aehl:n:sv?" flag; do
 	*) usage # NOTREACHED
 	esac
 done
+shift $(( OPTIND - 1 ))
 
 cd "$nsadmindir" || exit
 
