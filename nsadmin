@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 15:33:11 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 15:36:02 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,10 +58,11 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
-# 	Oct 2019:
+# 	Oct 2019: Release 4.5.2
 # 		- Defer loading of config until after processing options
 # 		- Defer check for root until after options processing
 # 		- Comments
+# 		- Look for config in proper directory based on OS
 # 	Oct 2019: Release 4.5.1
 # 		- Remove confusing line numbers from named-checkzone output
 # 		- Comments and other Minor edits
@@ -161,11 +162,11 @@
 #
 ############################################################ INCLUDES
 
-NSADMIN_CONF=/etc/nsadmin.conf
+NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.5.1 $'
+VERSION='$Version: 4.5.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -187,6 +188,11 @@ syncall=	# -a
 # Configuration defaults
 #
 : ${views:=$pgm}
+
+#
+# OS Glue
+#
+: ${UNAME_s:=$( uname -s )}
 
 #
 # Miscellaneous
@@ -1752,6 +1758,14 @@ if [ "${USER:=$( id -nu )}" = root ]; then
 	rootfail=1
 	fatal "root is forbidden to use nsadmin" # NOTREACHED
 fi
+
+#
+# OS Glue
+#
+case "$UNAME_s" in
+*BSD*) NSADMIN_CONF="/usr/local/etc/$NSADMIN_CONF" ;;
+*) NSADMIN_CONF="/etc/$NSADMIN_CONF"
+esac
 
 #
 # Load configs
