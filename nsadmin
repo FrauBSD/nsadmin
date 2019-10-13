@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-12 16:18:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 11:35:02 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.5
+# 		- Make include files for generated zones and rev maps
 # 	Oct 2019: Release 4.4.1
 # 		- Remove log if exiting due to running as root
 # 	Oct 2019: Release 4.4
@@ -848,7 +850,8 @@ genrev()
 		zone2rev_debug=
 #?		[ "$sync" ] && zone2rev_debug=-d # Testing -- Devin
 		for file in $list; do
-			printf "  \e[2m%-30s \e[1m%4u/%-4u\e[m\n" "[$file]" $n $t
+			printf "  \e[2m%-30s \e[1m%4u/%-4u\e[m\n" \
+				"[$file]" $n $t
 			for subnet in $subnets; do
 #?				printf "  \e[3m-> $subnet\e[m\n"
 #?					# Testing -- Devin
@@ -981,6 +984,61 @@ revunq()
 	' > .revunq
 
 	sudo mv .revunq "$file"
+}
+ 
+# genconf view ...
+#
+# Make BIND include files of generated zones and rev maps for each given view.
+#
+genconf()
+{
+	local view file zone master_conf rev_conf
+	local prefix='^[[:space:]]*$ORIGIN\>.*'
+	local suffix='\.arpa\.\([[:space:]]\|$\)'
+	local ip4arpa="$prefix"'\.in-addr'"$suffix"
+	local ip6arpa="$prefix"'\.ip6'"$suffix"
+
+	cd "$nameddir" || return
+	for view in "$@"; do
+		mkdir -p -m 0770 "$view/include"
+		sudo chown "$binduser:$bindgroup" "$view/include"
+
+		# Generate master.conf include for view
+		master_conf="$view/include/master.conf"
+		:| sudo tee "$master_conf"
+		for file in "$view"/master/*; do
+			zone="${file##*/}"
+			{
+				printf 'zone "%s" in {\n' "$zone"
+				printf '\ttype master;\n'
+				printf '\tfile "%s";\n' "$file"
+				printf '\tnotify yes;\n'
+				printf '};\n'
+			} | sudo tee -a "$master_conf" > /dev/null
+		done
+
+		# Generate rev.conf include for view
+		rev_conf="$view/include/rev.conf"
+		:| sudo tee "$rev_conf"
+		for file in "$view"/rev/*; do
+			zone="${file##*/}"
+			grep -q "$ip4arpa" "$file" && {
+				printf 'zone "%s.in-addr.arpa" in {\n' "$zone"
+				printf '\ttype master;\n'
+				printf '\tfile "%s";\n' "$file"
+				printf '\tnotify yes;\n'
+				printf '};\n'
+			} | sudo tee -a "$rev_conf" > /dev/null
+			grep -q "$ip6arpa" "$file" && {
+				printf 'zone "%s.ip6.arpa" in {\n' "$zone"
+				printf '\ttype master;\n'
+				printf '\tfile "%s";\n' "$file"
+				printf '\tnotify yes;\n'
+				printf '};\n'
+			} | sudo tee -a "$rev_conf" > /dev/null
+		done
+	done
+	cd - > /dev/null
 }
 
 ############################################################ OP FUNCTIONS
@@ -1359,6 +1417,9 @@ pushzones()
 	sudo chmod -R g+w *
 	find . -type f -exec sudo cp {} "$nameddir/{}" \;
 	cd - > /dev/null
+
+	msg "	Generating configs: $( date )"
+	genconf $views
 
 	msg "	Building zone tarball: $( date )"
 	cd "$tmp"
