@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsslave,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsslave 2019-10-09 12:11:36 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsslave 2019-10-13 14:35:44 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -39,13 +39,15 @@
 #
 # --------------------------------------------------------------------
 # Notes:
-# 	- Requires nsslave.conf to operate.
-# 	- Requires user 'cm' and the appropriate .ssh/authorized_keys2
-# 	  file.
-# 	- User 'cm' must be able to 'sudo /usr/local/bin/nsslave'
-# 	  without a password.
+# 	- Requires /etc/nsslave.conf to operate
+# 	- Requires user `cm' and appropriate `.ssh/authorized_keys2' file
+# 	- User `cm' needs `sudo /usr/local/bin/nsslave' without password
 # --------------------------------------------------------------------
-# History:
+# Version History:
+# 	Oct 2019: Release 2.2.1
+# 		- Add -v flag to get version
+# 		- Add usage statement (-h)
+# 		- Comments and other minor edits
 # 	Oct 2019: Release 2.2
 # 		- Runtime OS glue
 # 	Jul 2019: Release 2.1
@@ -59,9 +61,13 @@
 #
 ############################################################ INCLUDES
 
-. "/etc/nsslave.conf" || exit
+NSSLAVE_CONF=/etc/nsslave.conf
 
 ############################################################ GLOBALS
+
+VERSION='$Version: 2.2.1 $'
+
+pgm="${0##*/}" # Program basename
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 
@@ -79,6 +85,23 @@ SYSTEMD=
 ############################################################ FUNCTIONS
 
 have(){ type "$@" > /dev/null 2>&1; }
+
+# usage
+#
+# Print usage statement to stderr and exit with error status.
+#
+usage()
+{
+	local optfmt="\t%-5s %s\n"
+
+	exec >&2
+	printf "Usage: %s [-hv]\n" "$pgm"
+	printf "Options:\n"
+	printf "$optfmt" "-h" "Print usage and exit."
+	printf "$optfmt" "-v" "Print version and exit."
+
+	exit $FAILURE
+}
 
 # msg text ...
 #
@@ -106,23 +129,57 @@ sigquit()
 
 ############################################################ MAIN
 
+#
+# Process command-line options
+#
+while getopts "hv?" flag; do
+	case "$flag" in
+	v) VERSION="${VERSION#*: }"
+		echo "${VERSION% $}"
+		exit $SUCCESS ;;
+	*) usage # NOTREACHED
+	esac
+done
+shift $(( $OPTIND - 1 ))
+
+#
+# Load config
+#
+. "$NSSLAVE_CONF" || exit
+
+
+#
+# OS Glue
+#
 have systemctl && SYSTEMD=1
 
+#
+# Setup
+#
 umask 0022
 trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
 mkdir -p "$tmp"
 cd "$tmp" || exit
 
+#
+# Unpack
+#
 msg "Unpacking zone tarball: $( date )"
 tar xvzf zone.tgz 2>&1 | while read line; do
 	echo "		$line"
 done
 rm -f zone.tgz
 
+#
+# Permissions
+#
 msg "Changing ownership and permissions: $( date )"
 chown -R "$owner:$group" $views
 chmod -R g-w $views
 
+#
+# Backup
+#
 msg "Backing up zone files: $( date )"
 for view in $views; do
 	for file in $( find "$view" -type f ); do
@@ -131,11 +188,17 @@ for view in $views; do
 	done
 done
 
+#
+# Push
+#
 msg "Moving files to $nameddir: $( date )"
 for view in $views; do
 	find "$view" -type f -exec mv {} "$nameddir/{}" \;
 done
 
+#
+# Reload
+#
 msg "Restarting named:$( date )"
 printf "\t\t"
 if [ "$SYSTEMD" ]; then
