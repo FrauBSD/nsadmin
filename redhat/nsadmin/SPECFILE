@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.5.1
+Version: 4.5.2
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,11 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.2-1
+- 217f8f4 Look for config in proper directory based on OS
+- 2e33c8c Comments
+- 3c72c8c Defer check for root until after options processing
+- 7499df1 Defer loading of config until after processing options
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.1-1
 - c8119b9 Fix version, named-checkzone output, and comments
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5-1
