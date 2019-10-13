@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 16:40:18 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 16:53:06 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.5.6
+# 		- Make default slaves empty in config
 # 	Oct 2019: Release 4.5.5
 # 		- Use BSD compatible ANSI escape sequences for printf
 # 	Oct 2019: Release 4.5.4
@@ -172,7 +174,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.5.5 $'
+VERSION='$Version: 4.5.6 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
