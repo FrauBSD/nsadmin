@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 17:30:48 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 17:47:30 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.5.9
+# 		- Use full paths in genconf()
 # 	Oct 2019: Release 4.5.8
 # 		- Fix configuration defaults
 # 	Oct 2019: Release 4.5.7
@@ -178,7 +180,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.5.8 $'
+VERSION='$Version: 4.5.9 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1018,7 +1020,7 @@ genconf()
 		# Generate master.conf include for view
 		master_conf="$view/include/master.conf"
 		:| sudo tee "$master_conf"
-		for file in "$view"/master/*; do
+		for file in "$nameddir/$view"/master/*; do
 			zone="${file##*/}"
 			{
 				printf 'zone "%s" in {\n' "$zone"
@@ -1032,7 +1034,7 @@ genconf()
 		# Generate rev.conf include for view
 		rev_conf="$view/include/rev.conf"
 		:| sudo tee "$rev_conf"
-		for file in "$view"/rev/*; do
+		for file in "$nameddir/$view"/rev/*; do
 			zone="${file##*/}"
 			grep -q "$ip4arpa" "$file" && {
 				printf 'zone "%s.in-addr.arpa" in {\n' "$zone"
