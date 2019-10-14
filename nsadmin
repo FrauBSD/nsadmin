@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 20:08:51 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 22:46:14 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.7
+# 		- Add /new and /rm commands to edit prompt
 # 	Oct 2019: Release 4.6.5
 # 		- Fix TLD record generation
 # 	Oct 2019: Release 4.6.4
@@ -1300,7 +1302,7 @@ sigquit()
 #
 zonemenu()
 {
-	local zone
+	local zone rest
 
 	while :; do
 		zonelist
@@ -1314,12 +1316,24 @@ zonemenu()
 			printf " view "
 		fi
 		printf "or 'q' to quit:\033[m "
-		read zone
+		read zone rest
 		echo
 
 		if [ "$zone" = Q ] || [ "$zone" = q ]; then
 			break
 		fi
+
+		case "$zone" in
+		/*)
+			case "$rest" in
+			*[!0-9a-zA-Z-.]*) # Invalid domain name
+				eval ${zone#/}zone
+				;;
+			*)
+				eval ${zone#/}zone $rest
+			esac
+			continue
+		esac
 
 		echo
 		if [ ! "$zone" ] || [ ! -f "$zone" ]; then
@@ -1350,6 +1364,116 @@ zonemenu()
 	done
 }
 
+# pause
+#
+# Wait for user to press ENTER to continue.
+#
+pause()
+{
+	local ignored
+
+	printf "\n \e[1m< Press ENTER to continue >\e[m "
+	read ignored
+	echo
+}
+
+# newzone [zone]
+#
+# Handler for the /new zone menu edit command.
+#
+newzone()
+{
+	local err
+	local zone
+
+	if [ "$1" ]; then
+		zone="$1"
+	else
+		printf "  Enter a name for new zone: "
+		read zone
+	fi
+
+	case "$zone" in
+	"") return ;;
+	..|.|*/*)
+		msg "  Invalid zone \`$zone': $( date )"
+		pause
+		return
+		;;
+	esac
+
+	local file="$nsadmindir/$zone"
+	local rcsfile="$nsadmindir/RCS/$zone,v"
+
+	if [ -e "$file" ]; then
+		msg "   Zone $zone already exists: $( date )"
+		pause
+		return
+	elif ! err=$( touch "$file" 2>&1 ); then
+		msg "   $err"
+		pause
+		return
+	fi
+
+	echo
+	rcs -l "$file"
+	echo "$USER: $( date )" | ci -u "$file"
+	sudo chown "$binduser:$bindgroup" "$rcsfile"
+	sudo chmod 0660 "$rcsfile"
+
+	msg "   Created $zone zone: $( date )"
+	sleep 1
+}
+
+# rmzone [$zone]
+#
+# Handler for the /rm zone menu edit command.
+#
+rmzone()
+{
+	local zone
+	local ans
+
+	if [ "$1" ]; then
+		zone="$1"
+	else
+		printf "  Enter the name of the zone to remove: "
+		read zone
+	fi
+
+	case "$zone" in
+	"") return ;;
+	..|.|*/*)
+		msg "  Invalid zone \`$zone': $( date )"
+		pause
+		return
+		;;
+	esac
+
+	local file="$nsadmindir/$zone"
+
+	if ! [ -e "$file" ]; then
+		msg "Zone $zone does not exist: $( date )"
+		pause
+		return
+	fi
+
+	printf "\n \e[1mAre you sure you want to remove $zone [N/y]?\e[m "
+	read ans
+	case "$ans" in
+	[Yy]|[Yy][Ee][Ss]) : ok ;;
+	*) return
+	esac
+
+	if ! sudo rm -f "$file"; then
+		pause
+		return
+	fi
+
+	msg "   Removed $zone zone: $( date )"
+	sleep 1
+}
+
 ############################################################ ZONE FUNCTIONS
 # Functions to interact with master files and generated zones
 
@@ -1364,6 +1488,8 @@ checkin()
 
 	while eval [ \"\$colist_$cnt\" ]; do
 		eval file=\"\$colist_$cnt\"
+		cnt=$(( $cnt + 1 ))
+		[ -e "$file" ] || continue
 		case "$file" in
 		/*) rcsfile="${file%/*}/RCS/${file##*/},v" ;;
 		 *) rcsfile="RCS/$file,v"
@@ -1374,7 +1500,6 @@ checkin()
 		echo "$USER: $( date )" | ci -u "$file" #? > /dev/null 2>&1
 		sudo chown "$binduser:$bindgroup" "$rcsfile"
 		sudo chmod 0660 "$rcsfile"
-		cnt=$(( $cnt + 1 ))
 	done
 }
 
@@ -1655,6 +1780,7 @@ vprompt()
 #
 zonelist()
 {
+	local cmd
 	local cnt
 	local col=0
 	local tab=
@@ -1688,6 +1814,20 @@ zonelist()
 		col=$(( $col + 1 ))
 	done
 	printf "\n\n"
+
+	if [ "$editmode" ]; then
+		col=0
+		printf " \e[1mEdit Commands:\e[m\n\n "
+		for cmd in /new /rm; do
+			if [ $col -ge 6 ]; then
+				printf "\n "
+				col=0
+			fi
+			printf " %-12s" "$cmd"
+			col=$(( $col + 1 ))
+		done
+		printf "\n\n"
+	fi
 }
 
 # zonetest
