@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 19:52:58 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 20:08:51 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.6.5
+# 		- Fix TLD record generation
 # 	Oct 2019: Release 4.6.4
 # 		- Fix error in genconf() when no rev maps exist
 # 	Oct 2019: Release 4.6.3
@@ -191,7 +193,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.6.4 $'
+VERSION='$Version: 4.6.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -531,6 +533,7 @@ BEGIN {
 	delete initialized
 	delete files
 	NR = 0
+	rec = ""
 	while (getline < file > 0) {
 		NR++
 		if (/^[[:space:]]*;/) continue
@@ -544,31 +547,36 @@ BEGIN {
 			type = U[1]
 			ip = $2
 		} else if (NF == 3) {
+			if ($1 !~ /^([0-9]+|IN)$/) rec = $1
 			type = U[2]
 			ip = $3
 		} else if (NF == 4 && U[2] ~ /^([0-9]+|IN)$/) {
+			if ($1 !~ /^[0-9]+$/) rec = $1
 			type = U[3]
 			ip = $4
 		} else if (NF == 5 && $2 ~ /^[0-9]+$/ && U[3] == "IN") {
+			rec = $1
 			type = U[4]
 			ip = $5
+		} else {
+			continue
 		}
 		if (type == "A") {
 			if ((errno = validate_ipaddr4(ip)) != 0) {
 				err(sprintf("bad A record `%s' for `%s' " \
-					"(ERR#%u)", ip, $1, errno))
+					"(ERR#%u)", ip, rec, errno))
 				continue
 			}
 			split(ip, oct, /\./)
 			net = sprintf("%u.%u.%u", oct[1], oct[2], oct[3])
 			if (!list_subnets && subnet && net != subnet) continue
 			rev = sprintf(".new-%u.%u.%u", oct[3], oct[2], oct[1])
-			ptr = sprintf("%u\t\t\t\t\tPTR\t%s.%s.",
-				oct[4], $1, file)
+			ptr = sprintf("%u\t\t\t\t\tPTR\t%s%s%s.",
+				oct[4], rec, rec == "" ? "" : ".", file)
 		} else if (type == "AAAA") {
 			if ((errno = validate_ipaddr6(ip)) != 0) {
 				err(sprintf("bad AAAA record `%s' for `%s' " \
-					"(ERR#%u)", ip, $1, errno))
+					"(ERR#%u)", ip, rec, errno))
 				continue
 			}
 			delete nib
@@ -594,12 +602,12 @@ BEGIN {
 				"%s.%s.%s.%s." \
 				"%s.%s.%s.%s." \
 				"%s.%s.%s.%s" \
-				"\t\tPTR\t%s.%s.",
+				"\t\tPTR\t%s%s%s.",
 				nib[32], nib[31], nib[30], nib[29],
 				nib[28], nib[27], nib[26], nib[25],
 				nib[24], nib[23], nib[22], nib[21],
 				nib[20], nib[19], nib[18], nib[17],
-				$1, file)
+				rec, rec == "" ? "" : ".", file)
 		} else {
 			continue
 		}
