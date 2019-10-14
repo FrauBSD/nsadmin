@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 23:05:19 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-14 12:16:33 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.7.3
+# 		- Fix detection of sudo failure in predit()
 # 	Oct 2019: Release 4.7.2
 # 		- Wordsmithing
 # 	Oct 2019: Release 4.7.1
@@ -200,7 +202,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.7.2 $'
+VERSION='$Version: 4.7.3 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -745,7 +747,7 @@ predit()
 {
 	local dir
 
-	trap "sigquit; exit" EXIT SIGHUP SIGINT SIGQUIT SIGTERM
+	trap sigquit EXIT
 
 	msg "$USER starting edits: $( date )"
 
@@ -754,6 +756,8 @@ predit()
 		sudofail=rm
 		exit $FAILURE
 	fi
+
+	trap "sigquit; exit" SIGHUP SIGINT SIGQUIT SIGTERM
 
 	echo > "$log"
 	log " Starting: $( date )"
@@ -1221,6 +1225,8 @@ msg()
 #
 sigquit()
 {
+	trap - EXIT SIGHUP SIGINT SIGQUIT SIGTERM
+
 	local date
 	local excl
 	local file
