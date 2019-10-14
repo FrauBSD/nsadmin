@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.5.7
+Version: 4.5.8
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.8-1
+- acbcc30 Fix configuration defaults
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.7-1
 - 940f55b Make mail optional with disabled defaults
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.6-1
