@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 22:46:14 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 22:59:40 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.7.1
+# 		- Fix version
+# 		- Change header color when changes made
 # 	Oct 2019: Release 4.7
 # 		- Add /new and /rm commands to edit prompt
 # 	Oct 2019: Release 4.6.5
@@ -195,7 +198,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.6.5 $'
+VERSION='$Version: 4.7.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -221,6 +224,7 @@ syncall=	# -a
 #
 # Miscellaneous
 #
+changes=				# Have changes been made?
 editmode=				# Run in edit mode
 failfile=				# File that failed zonetest()
 failtype=				# Type of file that failed
@@ -1768,6 +1772,7 @@ vprompt()
 			updzones="$file"
 		fi
 		echo
+		changes=1
 		;;
 	*)	msg "$USER re-editing $file; $( date )"
 		editmaster "$file"
@@ -1787,7 +1792,11 @@ zonelist()
 	local zone
 
 	clear
-	sep "# nsadmin: Zone List"
+	if [ "$changes" ]; then
+		sep -c 32 "# nsadmin: Zone List (exit to save)"
+	else
+		sep "# nsadmin: Zone List"
+	fi
 
 	for zone in [a-z0-9]*; do
 		[ -e "$zone" ] || continue
