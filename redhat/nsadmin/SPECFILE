@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.7
+Version: 4.7.1
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.7.1-1
+- 1917d93 Fix version and change header color when changes made
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.7-1
 - d068133 Add /new and /rm commands to edit prompt
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.6.5-1
