@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 22:59:40 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 23:05:19 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.7.2
+# 		- Wordsmithing
 # 	Oct 2019: Release 4.7.1
 # 		- Fix version
 # 		- Change header color when changes made
@@ -198,7 +200,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.7.1 $'
+VERSION='$Version: 4.7.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1793,7 +1795,7 @@ zonelist()
 
 	clear
 	if [ "$changes" ]; then
-		sep -c 32 "# nsadmin: Zone List (exit to save)"
+		sep -c 32 "# nsadmin: Zone List (quit to save; ^C to revert)"
 	else
 		sep "# nsadmin: Zone List"
 	fi
