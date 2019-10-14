@@ -11,7 +11,7 @@
 	"comment":"nsadmin",
 	"licenselogic":"single",
 	"licenses":["BSD"],
-	"version":"4.5.9",
+	"version":"4.6",
 
 	"maintainer":"dteske@freebsd.org",
 	"www":"https://www.fraubsd.org/nsadmin",
@@ -24,6 +24,14 @@
 	"desc":"DNS management software.
 
 WWW: https://www.fraubsd.org/nsadmin",
+
+	//////////////////////////////////////////////////// DEPENDENCIES
+
+	"deps":{
+		"bind9-devel":{"origin":"dns/bind9-devel"},
+		"rcs":{"origin":"devel/rcs"},
+		"sudo":{"origin":"security/sudo"},
+	},
 
 	//////////////////////////////////////////////////// FILES
 
@@ -60,6 +68,6 @@ WWW: https://www.fraubsd.org/nsadmin",
 ////////////////////////////////////////////////////////////////////////////////
 //
 // $Copyright: 2016-2018 Devin Teske. All rights reserved. $
-// $FrauBSD: nsadmin/freebsd/nsadmin/MANIFEST 2019-10-13 17:48:31 -0700 freebsdfrau $
+// $FrauBSD: nsadmin/freebsd/nsadmin/MANIFEST 2019-10-13 19:24:36 -0700 freebsdfrau $
 //
 ////////////////////////////////////////////////////////////////////////////////
