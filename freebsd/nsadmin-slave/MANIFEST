@@ -4,11 +4,11 @@
 {
 	//////////////////////////////////////////////////// HEADER
 
-	"name":"nsslave",
-	"origin":"fraubsd/nsslave",
+	"name":"nsadmin-slave",
+	"origin":"fraubsd/nsadmin-slave",
 	"categories":["fraubsd"],
 
-	"comment":"nsslave",
+	"comment":"nsslave software for nsadmin",
 	"licenselogic":"single",
 	"licenses":["BSD"],
 	"version":"2.2.2",
@@ -21,9 +21,16 @@
 
 	//////////////////////////////////////////////////// DESCRIPTION
 
-	"desc":"DNS management software.
+	"desc":"DNS slave software for nsadmin.
 
 WWW: https://www.fraubsd.org/nsadmin",
+
+	//////////////////////////////////////////////////// DEPENDENCIES
+
+	"deps":{
+		"bind9-devel":{"origin":"dns/bind9-devel"},
+		"sudo":{"origin":"security/sudo"},
+	},
 
 	//////////////////////////////////////////////////// FILES
 

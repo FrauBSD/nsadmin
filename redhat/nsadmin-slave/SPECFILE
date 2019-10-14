@@ -3,11 +3,11 @@
 # vi: set filetype=spec ::
 ############################################################ HEADER
 
-Name: nsslave
+Name: nsadmin-slave
 Group: Applications/FrauBSD
 # For a list of groups, see pkgcenter/redhat/Mk/GROUPS
 
-Summary: nsslave
+Summary: nsslave package for nsadmin
 License: BSD
 Version: 2.2.2
 Release: 1
