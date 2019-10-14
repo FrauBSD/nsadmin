@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 16:53:06 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 17:05:15 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.5.7
+# 		- Make mail optional with disabled defaults
 # 	Oct 2019: Release 4.5.6
 # 		- Make default slaves empty in config
 # 	Oct 2019: Release 4.5.5
@@ -174,7 +176,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.5.6 $'
+VERSION='$Version: 4.5.7 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1104,8 +1106,10 @@ dnsreload()
 			return
 		fi
 
-		echo "$USER: $( date )" |
-			mail -s "nsadmin: roll-back failed" "$critical"
+		if [ "$critical" ]; then
+			echo "$USER: $( date )" |
+				mail -s "nsadmin: roll-back failed" "$critical"
+		fi
 		fatal "roll-back failed ... giving up" # NOTREACHED
 		update=2
 
@@ -1236,7 +1240,9 @@ sigquit()
 	sep -n -c 2 " Finished: $date"
 	echo >> "$log"
 	log " Finished: $date"
-	cat "$log" | mail -s "$subj" "$admin"
+	if [ "$admin" ]; then
+		cat "$log" | mail -s "$subj" "$admin"
+	fi
 
 	if [ ! "$sudofail" ]; then
 		sudo rm -rf "$lock" "$log" "$tmp" \
