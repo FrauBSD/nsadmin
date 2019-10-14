@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-13 17:47:30 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-13 19:21:09 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.6
+# 		- Add support for TLD A/AAAA records
+# 		- Create $nsadmindir on initial launch
 # 	Oct 2019: Release 4.5.9
 # 		- Use full paths in genconf()
 # 	Oct 2019: Release 4.5.8
@@ -180,7 +183,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.5.9 $'
+VERSION='$Version: 4.6 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -526,22 +529,21 @@ BEGIN {
 		if ($1 ~ "^" file) continue
 		if (/;*VIEW:/ && $0 !~ view) continue
 		if (/\*/) continue
-		if ($2 ~ /^[[:digit:]]+$/) {
-			if ((family = toupper($3)) == "IN") {
-				type = toupper($4)
-				ip = $5
-			} else {
-				type = family
-				ip = $4
-			}
-		} else {
-			if ((family = toupper($2)) == "IN") {
-				type = toupper($3)
-				ip = $4
-			} else {
-				type = family
-				ip = $3
-			}
+		gsub(/;.*/, "")
+		delete U
+		for (n = 1; n <= 5 && n <= NF; n++) U[n] = toupper($n)
+		if (NF == 2) {
+			type = U[1]
+			ip = $2
+		} else if (NF == 3) {
+			type = U[2]
+			ip = $3
+		} else if (NF == 4 && U[2] ~ /^([0-9]+|IN)$/) {
+			type = U[3]
+			ip = $4
+		} else if (NF == 5 && $2 ~ /^[0-9]+$/ && U[3] == "IN") {
+			type = U[4]
+			ip = $5
 		}
 		if (type == "A") {
 			if ((errno = validate_ipaddr4(ip)) != 0) {
@@ -1783,9 +1785,36 @@ case "$UNAME_s" in
 esac
 
 #
-# Load configs
+# Load config
 #
 . "$NSADMIN_CONF" || exit
+
+#
+# Setup
+#
+if [ ! -e "$nsadmindir" ]; then
+	printf "\n\033[2m Setting up...\033[m\n\n"
+	case "$nsadmindir" in
+	*/*)
+		parentdir="${nsadmindir%/*}"
+		if [ ! -e "$parentdir" ]; then
+			if ! sudo mkdir -p -v "$parentdir"; then
+				sudofail=mkdir
+				exit $FAILURE
+			fi
+		fi
+		unset parentdir
+		;;
+	esac
+	if ! sudo mkdir -p -v -m 1770 "$nsadmindir"; then
+		sudofail=mkdir
+		exit $FAILURE
+	fi
+	if ! sudo chown -v "$binduser:$bindgroup" "$nsadmindir"; then
+		sudofail=mkdir
+		exit $FAILURE
+	fi
+fi
 cd "$nsadmindir" || exit
 
 #
