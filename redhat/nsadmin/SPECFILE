@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.6.1
+Version: 4.6.2
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.6.2-1
+- e2d1f73 Minor edit
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.6.1-1
 - 61bd6c6 Use sudo to create view directories
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.6-1
