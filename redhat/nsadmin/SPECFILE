@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.7.2
+Version: 4.7.3
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Mon Oct 14 2019 Devin Teske <dteske@fraubsd.org> 4.7.3-1
+- 8f0fddd Fix detection of sudo failure in predit()
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.7.2-1
 - 402218d Wordsmithing
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.7.1-1
