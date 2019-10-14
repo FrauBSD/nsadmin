@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-14 12:27:59 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-14 16:46:54 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.7.6
+# 		- Fix ANSI clear codes
 # 	Oct 2019: Release 4.7.5
 # 		- Fix ANSI escape sequences for BSD
 # 	Oct 2019: Release 4.7.4
@@ -206,7 +208,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.7.5 $'
+VERSION='$Version: 4.7.6 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -792,7 +794,7 @@ clear()
 	set -- ${size:-24 80}
 	rows="$1"
 	cols="$2"
-	printf "\033[${rows}S\033[H"
+	printf "\033[${rows}S\033[H\033[J"
 }
 
 ############################################################ GEN FUNCTIONS
