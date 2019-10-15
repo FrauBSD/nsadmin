@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-14 16:46:54 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-14 22:30:32 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.7.7
+# 		- Add support for sender domain override
 # 	Oct 2019: Release 4.7.6
 # 		- Fix ANSI clear codes
 # 	Oct 2019: Release 4.7.5
@@ -208,7 +210,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.7.6 $'
+VERSION='$Version: 4.7.7 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1144,8 +1146,9 @@ dnsreload()
 		fi
 
 		if [ "$critical" ]; then
-			echo "$USER: $( date )" |
-				mail -s "nsadmin: roll-back failed" "$critical"
+			echo "$USER: $( date )" | mail \
+				${domain:+-r "$USER@$domain"} \
+				-s "nsadmin: roll-back failed" "$critical"
 		fi
 		fatal "roll-back failed ... giving up" # NOTREACHED
 		update=2
@@ -1280,7 +1283,8 @@ sigquit()
 	echo >> "$log"
 	log " Finished: $date"
 	if [ "$admin" ]; then
-		cat "$log" | mail -s "$subj" "$admin"
+		cat "$log" | mail ${domain:+-r "$USER@$domain"} \
+			-s "$subj" "$admin"
 	fi
 
 	if [ ! "$sudofail" ]; then
