@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.7.7
+Version: 4.8
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Wed Oct 16 2019 Devin Teske <dteske@fraubsd.org> 4.8-1
+- 54236bb Make /new check for RCS files
 * Mon Oct 14 2019 Devin Teske <dteske@fraubsd.org> 4.7.7-1
 - ff4869d Add support for sender domain override
 * Mon Oct 14 2019 Devin Teske <dteske@fraubsd.org> 4.7.6-1
