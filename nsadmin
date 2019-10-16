@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:00:30 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:05:21 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.8.2
+# 		- Fixup creation of new/existing zone via /new
 # 	Oct 2019: Release 4.8.1
 # 		- Fixup RCS checkout by /new
 # 	Oct 2019: Release 4.8
@@ -214,7 +216,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.8.1 $'
+VERSION='$Version: 4.8.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1468,7 +1470,7 @@ newzone()
 		read new
 		echo
 		case "$new" in
-		[Y]|[Yy][Ee][Ss]) new=1 ;;
+		[Yy]|[Yy][Ee][Ss]) new=1 ;;
 		*) new=
 		esac
 
