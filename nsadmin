@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-14 22:30:32 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-16 12:46:58 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.8
+# 		- Make /new check for RCS files
 # 	Oct 2019: Release 4.7.7
 # 		- Add support for sender domain override
 # 	Oct 2019: Release 4.7.6
@@ -210,7 +212,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.7.7 $'
+VERSION='$Version: 4.8 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1406,6 +1408,7 @@ pause()
 newzone()
 {
 	local err
+	local checkout new
 	local zone
 
 	if [ "$1" ]; then
@@ -1431,7 +1434,50 @@ newzone()
 		msg "   Zone $zone already exists: $( date )"
 		pause
 		return
-	elif ! err=$( touch "$file" 2>&1 ); then
+	fi
+
+	# Zone file does not exist
+
+	if [ -e "$rcsfile" ]; then
+		msg "   RCS file ${rcsfile##*/} exists: $( date )"
+		printf "  Checkout %s%s? [Y/n]: " "${rcsfile##*/}" "$(
+			rcs log "$rcsfile" |
+				awk 'sub(/head: /,""){print;exit}' 2> /dev/null
+		)"
+		read checkout
+		echo
+		case "$checkout" in
+		[Nn]|[Nn][Oo]) checkout= ;;
+		*) checkout=1
+		esac
+
+		if [ "$checkout" ]; then
+			if ! ( cd "$nsadmindir" && checkout -uv "$zone" )
+			then
+				msg "   Zone checkout failed: $( date )"
+			else
+				msg "   Zone $zone checked out: $( date )"
+			fi
+			pause
+			return
+		fi
+
+		printf "  Create new %s zone? [N/y]: " "$zone"
+		read new
+		echo
+		case "$new" in
+		[Y]|[Yy][Ee][Ss]) new=1 ;;
+		*) new=
+		esac
+
+		if [ ! "$new" ]; then
+			msg "   Zone not checked out, not created: $( date )"
+			pause
+			return
+		fi
+	fi
+
+	if ! err=$( touch "$file" 2>&1 ); then
 		msg "   $err"
 		pause
 		return
@@ -1525,24 +1571,47 @@ checkin()
 	done
 }
 
-# checkout file
+# checkout [-u] file
 #
 # Using RCS, check out the master file for editing.
 #
 checkout()
 {
 	local cnt=1
-	local file="$1"
+	local file
+	local unlocked=
+	local verbose=
+	local OPTIND=1 OPTARG flag
 
-	while eval [ \"\$colist_$cnt\" ]; do
-		eval [ \"\$file\" = \"\$colist_$cnt\" ] && return
-		cnt=$(( $cnt + 1 ))
+	while getopts uv flag; do
+		case "$flag" in
+		u) unlocked=1 ;;
+		v) verbose=1 ;;
+		esac
 	done
+	shift $(( $OPTIND - 1 ))
 
-	eval colist_$cnt=\"\$file\"
-	sudo chown "$USER" "$file"
-	sudo chmod 0440 "$file"
-	:| co -l "$file" > /dev/null 2>&1
+	file="$1"
+	if [ -e "$file" ]; then
+		sudo chown "$USER" "$file"
+		if [ -w "$file" ]; then
+			sudo chmod 0440 "$file"
+		fi
+	fi
+
+	if [ "$unlocked" ]; then
+		while eval [ \"\$colist_$cnt\" ]; do
+			eval [ \"\$file\" = \"\$colist_$cnt\" ] && return
+			cnt=$(( $cnt + 1 ))
+		done
+		eval colist_$cnt=\"\$file\"
+	fi
+
+	if [ "$verbose" ]; then
+		:| co -l "$file"
+	else
+		:| co -l "$file" > /dev/null 2>&1
+	fi
 }
 
 # getsubnets file
