@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:10:41 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:13:03 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -1368,7 +1368,7 @@ zonemenu()
 		echo
 		if [ ! "$zone" ]; then
 			continue
-		if [ ! -f "$zone" ]; then
+		elif [ ! -f "$zone" ]; then
 			msg "Zone file not found: '$zone'"
 			sleep 1
 			continue
