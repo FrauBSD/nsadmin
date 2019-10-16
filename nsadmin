@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:13:03 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:19:35 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.8.4
+# 		- User interface/log enhancement
 # 	Oct 2019: Release 4.8.3
 # 		- Fixup user interface and log nits
 # 	Oct 2019: Release 4.8.2
@@ -218,7 +220,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.8.3 $'
+VERSION='$Version: 4.8.4 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1369,8 +1371,8 @@ zonemenu()
 		if [ ! "$zone" ]; then
 			continue
 		elif [ ! -f "$zone" ]; then
-			msg "Zone file not found: '$zone'"
-			sleep 1
+			msg "   Zone file not found: '$zone'"
+			pause
 			continue
 		fi
 
