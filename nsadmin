@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:19:35 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-16 13:37:31 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.8.5
+# 		- Show files being backed up
+# 		- Fixup /new RCS checkout
 # 	Oct 2019: Release 4.8.4
 # 		- User interface/log enhancement
 # 	Oct 2019: Release 4.8.3
@@ -220,7 +223,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.8.4 $'
+VERSION='$Version: 4.8.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1501,7 +1504,7 @@ newzone()
 	sudo chmod 0660 "$rcsfile"
 
 	msg "   Created $zone zone: $( date )"
-	sleep 1
+	pause
 }
 
 # rmzone [$zone]
@@ -1610,11 +1613,13 @@ checkout()
 		fi
 	fi
 
-	while eval [ \"\$colist_$cnt\" ]; do
-		eval [ \"\$file\" = \"\$colist_$cnt\" ] && return
-		cnt=$(( $cnt + 1 ))
-	done
-	eval colist_$cnt=\"\$file\"
+	if [ "$unlocked" ]; then
+		while eval [ \"\$colist_$cnt\" ]; do
+			eval [ \"\$file\" = \"\$colist_$cnt\" ] && return
+			cnt=$(( $cnt + 1 ))
+		done
+		eval colist_$cnt=\"\$file\"
+	fi
 
 	if [ "$verbose" ]; then
 		if [ "$unlocked" ]; then
@@ -1682,8 +1687,10 @@ pushzones()
 		for file in $( find "$view" -type f ! -name ".bak-*" ); do
 			res=$( echo "$file" |
 			    sed -e 's/\(.*\/\)\(.*\)/\1.bak-\2/' )
+			printf "\t  \033[2m-> %s\033[m\n" "$file"
 			sudo cp "$file" "$res"
 		done
+		echo
 	done
 	cd - > /dev/null
 
