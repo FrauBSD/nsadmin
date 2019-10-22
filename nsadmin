@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-16 14:07:32 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-22 14:33:08 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.8.7
+# 		- Add support for @ in zone2rev()
 # 	Oct 2019: Release 4.8.6
 # 		- Final fixup for /new RCS checkout
 # 		- Improve backup efficiency
@@ -228,7 +230,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.8.6 $'
+VERSION='$Version: 4.8.7 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -608,7 +610,8 @@ BEGIN {
 			if (!list_subnets && subnet && net != subnet) continue
 			rev = sprintf(".new-%u.%u.%u", oct[3], oct[2], oct[1])
 			ptr = sprintf("%u\t\t\t\t\tPTR\t%s%s%s.",
-				oct[4], rec, rec == "" ? "" : ".", file)
+				oct[4], rec == "@" ? "" : rec,
+				rec ~ /^@?$/ ? "" : ".", file)
 		} else if (type == "AAAA") {
 			if ((errno = validate_ipaddr6(ip)) != 0) {
 				err(sprintf("bad AAAA record `%s' for `%s' " \
@@ -643,7 +646,8 @@ BEGIN {
 				nib[28], nib[27], nib[26], nib[25],
 				nib[24], nib[23], nib[22], nib[21],
 				nib[20], nib[19], nib[18], nib[17],
-				rec, rec == "" ? "" : ".", file)
+				rec == "@" ? "" : rec,
+				rec ~ /^@?$/ ? "" : ".", file)
 		} else {
 			continue
 		}
