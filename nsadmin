@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-22 14:33:08 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-22 15:48:20 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,8 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.8.8
+# 		- Ignore jnl files created by nsupdate in conf generation
 # 	Oct 2019: Release 4.8.7
 # 		- Add support for @ in zone2rev()
 # 	Oct 2019: Release 4.8.6
@@ -230,7 +232,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.8.7 $'
+VERSION='$Version: 4.8.8 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1082,6 +1084,9 @@ genconf()
 		:| sudo tee "$master_conf"
 		for file in "$nameddir/$view"/master/*; do
 			[ -e "$file" ] || continue
+			case "$file" in
+			*.jnl) continue ;;
+			esac
 			zone="${file##*/}"
 			{
 				printf 'zone "%s" in {\n' "$zone"
@@ -1097,6 +1102,9 @@ genconf()
 		:| sudo tee "$rev_conf"
 		for file in "$nameddir/$view"/rev/*; do
 			[ -e "$file" ] || continue
+			case "$file" in
+			*.jnl) continue ;;
+			esac
 			zone="${file##*/}"
 			grep -q "$ip4arpa" "$file" && {
 				printf 'zone "%s.in-addr.arpa" in {\n' "$zone"
