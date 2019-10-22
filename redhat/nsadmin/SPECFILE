@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.8.7
+Version: 4.8.8
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Oct 22 2019 Devin Teske <dteske@fraubsd.org> 4.8.8-1
+- b9c4044 Ignore jnl files in genconf()
 * Wed Oct 16 2019 Devin Teske <dteske@fraubsd.org> 4.8.7-1
 - 633e5d2 Add support for @ as a record in master zones
 * Wed Oct 16 2019 Devin Teske <dteske@fraubsd.org> 4.8.6-1
