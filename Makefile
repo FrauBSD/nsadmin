@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin on non-GNU systems $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-25 19:44:10 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/Makefile 2019-10-24 07:18:08 +0000 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -19,8 +19,8 @@ TARGETS=	all \
 
 ############################################################ TARGETS
 
-all $(TARGETS):
-	$(MAKE) -f GNUmakefile CONFDIR=$(DESTDIR)/usr/local/etc $(MFLAGS)
+$(TARGETS):
+	$(MAKE) -f GNUmakefile CONFDIR=$(DESTDIR)/usr/local/etc $(MFLAGS) $(@)
 
 ################################################################################
 # END
