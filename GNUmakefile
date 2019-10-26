@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-25 19:37:38 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/GNUmakefile 2019-10-25 19:38:48 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -47,7 +47,7 @@ install-admin:
 	$(CP_F) $(NSADMIN_CONF) $(CONFDIR)/$(NSADMIN_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSADMIN_CONF).sample $(CONFDIR)/$(NSADMIN_CONF)
 
-install-admin:
+install-next:
 	$(MKDIR_P) $(BINDIR)
 	$(CP_F) $(NSNEXT) $(BINDIR)/
 	$(MKDIR_P) $(CONFDIR)
