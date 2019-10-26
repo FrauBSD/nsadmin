@@ -3,7 +3,7 @@
 #
 # $Title: Script to get next free IP address from nsadmin zone $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsnext 2019-10-25 18:21:35 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsnext 2019-10-26 13:04:03 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -11,7 +11,7 @@ NSNEXT_CONF=nsnext.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 1.0.2 $'
+VERSION='$Version: 1.0.3 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -31,6 +31,7 @@ FAILURE=1
 #
 # Command-line options
 #
+COUNT=		# -N num
 LOCAL=		# -l
 PING=1		# -n | -p
 SHOW_ALL=	# -a
@@ -65,11 +66,13 @@ usage()
 		shift 1 # fmt
 		printf "%s: $fmt\n" "$pgm" "$@"
 	fi
-	printf "Usage: %s [-ahlnpv] alias|cidr|network|arpa [nameserver]\n" "$pgm"
+	printf "Usage: %s [-ahlnpv] [-N num] %s [nameserver]\n" \
+		"$pgm" "alias|cidr|network|arpa"
 	printf "Options:\n"
 	printf "$optfmt" "-a" "Show all available addresses (implies \`-n')."
 	printf "$optfmt" "-h" "Print usage statement and exit."
 	printf "$optfmt" "-l" "Query local name server."
+	printf "$optfmt" "-N num" "Print num addresses."
 	printf "$optfmt" "-n" "Do not attempt to ping addresses."
 	printf "$optfmt" "-p" "Always attempt ping, even if given \`-a'."
 	printf "$optfmt" "-v" "Print version and exit."
@@ -81,10 +84,11 @@ usage()
 #
 # Process command-line options
 #
-while getopts ahlnpv flag; do
+while getopts ahlN:npv flag; do
 	case "$flag" in
 	a) SHOW_ALL=1 PING= ;;
 	l) LOCAL=1 ;;
+	N) COUNT="$OPTARG" ;;
 	n) PING= ;;
 	p) PING=1 ;;
 	v) VERSION="${VERSION#*: }"
@@ -94,6 +98,14 @@ while getopts ahlnpv flag; do
 	esac
 done
 shift $(( $OPTIND - 1 ))
+
+#
+# Validate command-line options
+#
+case "$COUNT" in
+""|*[!0-9]*) usage "\`-N num' requires numerical argument" ;; # NOTREACHED
+esac
+
 
 #
 # Validate command-line arguments
@@ -171,7 +183,9 @@ fi
 #
 # Find next available IP address
 #
+trap echo SIGINT
 export BLACKLIST
+export COUNT
 export PING
 export SHOW_ALL
 echo $ZONE | xargs -n1 | awk -v server="$SERVER" -v console=$CONSOLE '
@@ -184,6 +198,8 @@ BEGIN {
 	n = split(ENVIRON["BLACKLIST"], list, /[[:space:]]+/)
 	for (i = 1; i <= n; i++) blacklist[list[i]]
 
+	count = ENVIRON["COUNT"]
+	do_count = ENVIRON["COUNT"] != ""
 	ping = ENVIRON["PING"]
 	show_all = ENVIRON["SHOW_ALL"]
 }
@@ -302,6 +318,8 @@ function is_available(ip,        cmd, buf)
 ################################################## MAIN
 
 {
+	if (docount && count <= 0) exit
+
 	if (!match($0, "/[0-9]+$")) {
 		warn(sprintf("Invalid argument: %s", $0))
 		next
@@ -321,7 +339,12 @@ function is_available(ip,        cmd, buf)
 			ip = itoa(inum)
 			if (ip in blacklist) continue
 			if (ip in used) continue
-			if (is_available(ip) && !show_all) exit
+			if (is_available(ip)) {
+				if (do_count) {
+					if (--count <= 0) exit
+				} else if (!show_all)
+					exit
+			}
 		}
 	}
 }
