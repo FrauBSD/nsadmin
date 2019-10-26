@@ -3,7 +3,7 @@
 #
 # $Title: Script to get next free IP address from nsadmin zone $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsnext 2019-10-26 13:04:03 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsnext 2019-10-26 13:08:00 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -11,7 +11,7 @@ NSNEXT_CONF=nsnext.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 1.0.3 $'
+VERSION='$Version: 1.0.4 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -103,7 +103,7 @@ shift $(( $OPTIND - 1 ))
 # Validate command-line options
 #
 case "$COUNT" in
-""|*[!0-9]*) usage "\`-N num' requires numerical argument" ;; # NOTREACHED
+*[!0-9]*) usage "\`-N num' requires numerical argument" ;; # NOTREACHED
 esac
 
 
