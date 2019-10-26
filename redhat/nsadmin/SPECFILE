@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.8.9
+Version: 4.9
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,11 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 4.9-1
+- 5dd0f65 Move vim filetype hint to top of new zone template
+- 5dd0f65 Move command-line option global definitions
+- 5dd0f65 Fix `-n slave[,...]' config override
+- 5dd0f65 Show diff when importing changes detected during sync
 * Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 4.8.9-1
 - 4de451c If running as root, require new `-u user' option
 - 4de451c Check user after sourcing config so we can write to log
