@@ -1,0 +1,79 @@
+// -*- tab-width: 4 -*-        ;; Emacs
+// vi: set noexpandtab         :: Vi/ViM
+// vi: set filetype=javascript ::
+{
+	//////////////////////////////////////////////////// HEADER
+
+	"name":"nsnext",
+	"origin":"fraubsd/nsnext",
+	"categories":["fraubsd"],
+
+	"comment":"Find unused IP addresses in DNS",
+	"licenselogic":"single",
+	"licenses":["BSD"],
+	"version":"1.0.1",
+
+	"maintainer":"dteske@freebsd.org",
+	"www":"https://www.fraubsd.org/nsadmin",
+
+	"arch":"freebsd",
+	"prefix":"/usr/local",
+
+	//////////////////////////////////////////////////// DESCRIPTION
+
+	"desc":"Script to find unused IP addresses that are unconfigured in DNS.
+Will attempt to ping unconfigured addresses (by default) to confirm
+that prospective IP address(es) are (or are not) available.
+
+Defaults to printing the first available IP address and exits.
+
+Takes as argument either configured ``alias'' in nsnext.conf, subnet
+(optionally in CIDR notation), base IP address (24 bit subnet mask
+presumed if not in CIDR notation), or in-addr.arpa zone name.
+
+WWW: https://www.fraubsd.org/nsadmin",
+
+	//////////////////////////////////////////////////// DEPENDENCIES
+
+	"deps":{
+		"bind-tools":{"origin":"dns/bind-tools"},
+	},
+
+	//////////////////////////////////////////////////// FILES
+
+	"files":[
+		"/usr/local/bin/nsnext",
+		"/usr/local/etc/nsnext.conf.sample",
+	],
+
+	//////////////////////////////////////////////////// DIRECTORIES
+
+	"directories":{
+		"/usr":"n",
+		"/usr/local":"n",
+		"/usr/local/bin":"n",
+		"/usr/local/etc":"n",
+	},
+
+	//////////////////////////////////////////////////// SCRIPTS
+
+	"scripts":{
+		"post-install":"
+			conf=/usr/local/etc/nsnext.conf
+			[ -e $conf ] || cp $conf.sample $conf
+		",
+		"pre-deinstall":"
+			conf=/usr/local/etc/nsnext.conf
+			cmp -s $conf.sample $conf && rm -f $conf
+		",
+	}
+
+}
+////////////////////////////////////////////////////////////////////////////////
+// END
+////////////////////////////////////////////////////////////////////////////////
+//
+// $Copyright: 2016-2018 Devin Teske. All rights reserved. $
+// $FrauBSD: nsadmin/freebsd/nsnext/MANIFEST 2019-10-25 18:04:29 -0700 freebsdfrau $
+//
+////////////////////////////////////////////////////////////////////////////////
