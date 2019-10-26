@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: Find unused IP addresses in DNS
 License: BSD
-Version: 1.0
+Version: 1.0.1
 Release: 1
 Buildarch: noarch
 
@@ -84,5 +84,7 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 1.0.1-1
+- 0c86498 Fix error message
 * Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 1.0-1
 - Package created.
