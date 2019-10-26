@@ -2,14 +2,13 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-10 13:34:29 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/Makefile 2019-10-25 19:37:38 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
 DESTDIR=	
 BINDIR=		$(DESTDIR)/usr/local/bin
 CONFDIR=	$(DESTDIR)/etc
-NSADMINDIR=	$(CONFDIR)/nsadmin
 
 ############################################################ PATHS
 
@@ -24,6 +23,9 @@ RM_F=		rm -f
 NSADMIN=	nsadmin
 NSADMIN_CONF=	nsadmin.conf
 
+NSNEXT=		nsnext
+NSNEXT_CONF=	nsnext.conf
+
 NSSLAVE=	nsslave
 NSSLAVE_CONF=	nsslave.conf
 
@@ -32,8 +34,10 @@ NSSLAVE_CONF=	nsslave.conf
 all install uninstall:
 	@printf "Options:\n"
 	@printf "\tmake install-admin\tInstall nsadmin\n"
+	@printf "\tmake install-next\tInstall nsnext\n"
 	@printf "\tmake install-slave\tInstall nsslave\n"
 	@printf "\tmake uninstall-admin\tUninstall nsadmin\n"
+	@printf "\tmake uninstall-next\tUninstall nsnext\n"
 	@printf "\tmake uninstall-slave\tUninstall nsslave\n"
 
 install-admin:
@@ -42,6 +46,13 @@ install-admin:
 	$(MKDIR_P) $(CONFDIR)
 	$(CP_F) $(NSADMIN_CONF) $(CONFDIR)/$(NSADMIN_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSADMIN_CONF).sample $(CONFDIR)/$(NSADMIN_CONF)
+
+install-admin:
+	$(MKDIR_P) $(BINDIR)
+	$(CP_F) $(NSNEXT) $(BINDIR)/
+	$(MKDIR_P) $(CONFDIR)
+	$(CP_F) $(NSNEXT_CONF) $(CONFDIR)/$(NSNEXT_CONF).sample
+	$(CP_N) $(CONFDIR)/$(NSNEXT_CONF).sample $(CONFDIR)/$(NSNEXT_CONF)
 
 install-slave:
 	$(MKDIR_P) $(BINDIR)
@@ -55,6 +66,12 @@ uninstall-admin:
 	CONF=$(CONFDIR)/$(NSADMIN_CONF); \
 		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
 	$(RM_F) $(CONFDIR)/$(NSADMIN_CONF).sample
+
+uninstall-next:
+	$(RM_F) $(BINDIR)/$(NSNEXT)
+	CONF=$(CONFDIR)/$(NSNEXT_CONF); \
+		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
+	$(RM_F) $(CONFDIR)/$(NSNEXT_CONF).sample
 
 uninstall-slave:
 	$(RM_F) $(BINDIR)/$(NSSLAVE)
