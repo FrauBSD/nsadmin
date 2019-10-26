@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9
+Version: 4.9.1
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,23 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Sat Oct 26 2019 Devin Teske <dteske@fraubsd.org> 4.9.1-1
+- 83a622b Fix editmaster() read-only issue on re-edits
+- 83a622b Fix unnecessary compound string in sigquit()
+- 83a622b Re-checkout /rm'd zones on unclean exit
+- 83a622b Remove /new'd zones on unclean exit
+- 83a622b Make /rm require config regeneration and edit desc
+- 83a622b Add `-u' and `-v' command-line options to checkout()
+- 83a622b Use checkout() in newzone() instead of one-off `co'
+- 83a622b Ensure /rm'd zones/revs are not resolvable after rm
+- 83a622b Prevent `/' commands in view mode
+- 83a622b Improve vimcat handling
+- 83a622b Warn user when journal file exists
+- 83a622b Move `local' definitions in rmzone() to top of function
+- 83a622b Always forcefully lock files before ci in checkin()
+- 83a622b Highlight rm'd zones as-such (red) during backups
+- 83a622b Print config file paths during genconf()
+- 83a622b Reset traps before entering generation stage
 * Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 4.9-1
 - 5dd0f65 Move vim filetype hint to top of new zone template
 - 5dd0f65 Move command-line option global definitions
