@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9.1
+Version: 4.9.2
 Release: 1
 Buildarch: noarch
 
