@@ -3,7 +3,7 @@
 #
 # $Title: Script to get next free IP address from nsadmin zone $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsnext 2019-10-25 17:41:09 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsnext 2019-10-25 17:53:08 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -11,7 +11,7 @@ NSNEXT_CONF=nsnext.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 1.0 $'
+VERSION='$Version: 1.0.1 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -247,7 +247,7 @@ function get_used(subnet,        arpa, cmd, rec, words, ip, nrecs)
 	}
 	close(cmd)
 	if (rec != "success") {
-		warn(sprintf("Unable to transfer zone: %s", $0))
+		warn(sprintf("Unable to transfer zone: %s", arpa))
 		return 0
 	}
 	if (nrecs == 0) {
