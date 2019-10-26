@@ -2,7 +2,12 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/GNUmakefile 2019-10-25 19:38:48 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/GNUmakefile 2019-10-25 19:44:10 -0700 freebsdfrau $
+#
+############################################################ INFORMATION
+#
+# DO NOT USE GNU EXTENSIONS IN THIS FILE
+# THIS FILE MUST REMAIN USABLE BY NON-GNU MAKE
 #
 ############################################################ CONFIGURATION
 
