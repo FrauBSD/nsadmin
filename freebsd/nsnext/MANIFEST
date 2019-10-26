@@ -11,7 +11,7 @@
 	"comment":"Find unused IP addresses in DNS",
 	"licenselogic":"single",
 	"licenses":["BSD"],
-	"version":"1.0.3",
+	"version":"1.0.4",
 
 	"maintainer":"dteske@freebsd.org",
 	"www":"https://www.fraubsd.org/nsadmin",
@@ -74,6 +74,6 @@ WWW: https://www.fraubsd.org/nsadmin",
 ////////////////////////////////////////////////////////////////////////////////
 //
 // $Copyright: 2016-2018 Devin Teske. All rights reserved. $
-// $FrauBSD: nsadmin/freebsd/nsnext/MANIFEST 2019-10-26 13:05:50 -0700 freebsdfrau $
+// $FrauBSD: nsadmin/freebsd/nsnext/MANIFEST 2019-10-26 13:09:05 -0700 freebsdfrau $
 //
 ////////////////////////////////////////////////////////////////////////////////
