@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-26 12:12:00 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-26 12:51:42 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,10 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.2
+# 		- Revert reset of traps before generation tasks
+# 		- Whitespace
+# 		- Remove stray semi-colon
 # 	Oct 2019: Release 4.9.1
 # 		- Fix editmaster() read-only issue on re-edits
 # 		- Fix unnecessary compound string in sigquit()
@@ -259,7 +263,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.1 $'
+VERSION='$Version: 4.9.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -752,7 +756,7 @@ zone2rev()
 		s) subnet="$OPTARG" ;;
 		V) verify=1 ;;
 		v) view="$OPTARG" ;;
-		esac;
+		esac
 	done
 	shift $(( $OPTIND - 1 ))
 
@@ -2012,7 +2016,7 @@ viewtest()
 	fi
 
 	# checkin file on exit in sync mode (-s)
-	if [ "$sync" ];then
+	if [ "$sync" ]; then
 		synccnt=$(( $synccnt + 1 ))
 		eval colist_$synccnt=\"\$1\"
 	fi
@@ -2422,10 +2426,11 @@ else
 		cat "$tmpfile" >> "$log"
 	) || exit
 fi
-trap - EXIT SIGHUP SIGINT SIGQUIT SIGTERM
 genmaster
 pushzones
 dnsreload
+newzones=
+rmdzones=
 
 exit $SUCCESS
 
