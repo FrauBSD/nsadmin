@@ -1,0 +1,334 @@
+#!/bin/sh
+############################################################ IDENT(1)
+#
+# $Title: Script to get next free IP address from nsadmin zone $
+# $Copyright: 2019 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsnext 2019-10-25 17:41:09 -0700 freebsdfrau $
+#
+############################################################ CONFIGURATION
+
+NSNEXT_CONF=nsnext.conf # See OS Glue
+
+############################################################ GLOBALS
+
+VERSION='$Version: 1.0 $'
+
+pgm="${0##*/}" # Program basename
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
+#
+# Global exit status
+#
+SUCCESS=0
+FAILURE=1
+
+#
+# OS Glue
+#
+: ${UNAME_s:=$( uname -s )}
+
+#
+# Command-line options
+#
+LOCAL=		# -l
+PING=1		# -n | -p
+SHOW_ALL=	# -a
+
+#
+# Miscellaneous
+#
+BLACKLIST=
+CONSOLE=1
+[ -t 1 ] || CONSOLE=
+SERVER=
+ZONE=
+
+############################################################ FUNCTIONS
+
+die()
+{
+	local fmt="$1"
+	if [ $# -gt 0 ]; then
+		shift 1 # fmt
+		printf "%s: $fmt\n" "$pgm" "$@" >&2
+	fi
+	exit $FAILURE
+}
+
+usage()
+{
+	local optfmt="\t%-5s %s\n"
+	exec >&2
+	if [ $# -gt 0 ]; then
+		local fmt="$1"
+		shift 1 # fmt
+		printf "%s: $fmt\n" "$pgm" "$@"
+	fi
+	printf "Usage: %s [-ahlnpv] alias|cidr|network|arpa [nameserver]\n" "$pgm"
+	printf "Options:\n"
+	printf "$optfmt" "-a" "Show all available addresses (implies \`-n')."
+	printf "$optfmt" "-h" "Print usage statement and exit."
+	printf "$optfmt" "-l" "Query local name server."
+	printf "$optfmt" "-n" "Do not attempt to ping addresses."
+	printf "$optfmt" "-p" "Always attempt ping, even if given \`-a'."
+	printf "$optfmt" "-v" "Print version and exit."
+	die
+}
+
+############################################################ MAIN
+
+#
+# Process command-line options
+#
+while getopts ahlnpv flag; do
+	case "$flag" in
+	a) SHOW_ALL=1 PING= ;;
+	l) LOCAL=1 ;;
+	n) PING= ;;
+	p) PING=1 ;;
+	v) VERSION="${VERSION#*: }"
+		echo "${VERSION% $}"
+		exit $SUCCESS ;;
+	*) usage # NOTREACHED
+	esac
+done
+shift $(( $OPTIND - 1 ))
+
+#
+# Validate command-line arguments
+#
+if [ $# -eq 0 ]; then
+	usage "Not enough arguments"
+	# NOTREACHED
+elif [ $# -gt 2 ]; then
+	usage "Too many arguments"
+	# NOTREACHED
+elif [ $# -eq 2 -a "$LOCAL" ]; then
+	usage "Too many arguments (cannot use \`-l' with multiple arguments)"
+	# NOTREACHED
+fi
+
+#
+# Command-line arguments
+#
+ZONE=$( echo "$1" | awk '{print tolower($0)}' )
+if [ "$LOCAL" ]; then
+	SERVER=127.0.0.1
+elif [ $# -eq 2 ]; then
+	SERVER="$2"
+fi
+
+#
+# OS Glue
+#
+case "$UNAME_s" in
+*BSD*) NSNEXT_CONF="/usr/local/etc/$NSNEXT_CONF" ;;
+*) NSNEXT_CONF="/etc/$NSNEXT_CONF"
+esac
+
+#
+# Load config
+#
+. "$NSNEXT_CONF" || die
+
+#
+# Check configured aliases and convert to in-addr.arpa
+#
+found_alias=
+for alias in $aliases; do
+	[ "$ZONE" = "$alias" ] || continue
+	found_alias=1
+	break
+done
+if [ "$found_alias" ]; then
+	eval BLACKLIST=\"\$${ZONE}_blacklist\"
+	eval ZONE=\"\$$ZONE\" # Replace with defined alias
+else
+	case "$ZONE" in
+	*.in-addr.arpa|*.in-addr.arpa.)
+		ZONE=$( echo "$ZONE" | awk '{
+			o = ""
+			sub(/\.in-addr\.arpa\.?/, "")
+			p = split($0, q, /\./)
+			for (r = p; r > 0; r--) o = o "." q[r]
+			for (r = p; r < 4; r++) o = o ".0"
+			print substr(o, 2)
+		}' )
+		;;
+	esac
+	case "$ZONE" in
+	*/*) : good ;;
+	*[!0-9.]*) : name ;;
+	*) ZONE="$ZONE/24"
+	esac
+fi
+
+#
+# Detect lack of console
+#
+
+#
+# Find next available IP address
+#
+export BLACKLIST
+export PING
+export SHOW_ALL
+echo $ZONE | xargs -n1 | awk -v server="$SERVER" -v console=$CONSOLE '
+################################################## BEGIN
+
+BEGIN {
+	stderr = "/dev/stderr"
+
+	delete blacklist # Pedantic
+	n = split(ENVIRON["BLACKLIST"], list, /[[:space:]]+/)
+	for (i = 1; i <= n; i++) blacklist[list[i]]
+
+	ping = ENVIRON["PING"]
+	show_all = ENVIRON["SHOW_ALL"]
+}
+
+################################################## FUNCTIONS
+
+function atoi(ip,        n, o, p, q, r)
+{
+	n = o = 0
+	delete q # Pedantic
+	p = split(ip, q, /\./)
+	for (r = p; r > 0; r--) o += lshift(q[r], 8 * n++)
+	return o
+}
+
+function mask(bits,        n, o)
+{
+	o = 0
+	while (bits > 0) o += lshift(1, 32 - bits--)
+	return o
+}
+
+function itoa(inet,        o, p)
+{
+	o = ""
+	for (p = 3; p >= 0;)
+		o = o "." and(rshift(inet, 8 * p--), 255)
+	return substr(o, 2)
+}
+
+function itor(inet,        o, p)
+{
+	o = "in-addr.arpa."
+	for (p = 3; p > 0;)
+		o = and(rshift(inet, 8 * p--), 255) "." o
+	return o
+}
+
+function rtoa(arpa,        o, p, q)
+{
+	o = ""
+	delete p # Pedantic
+	q = split(arpa, p, /\./)
+	return sprintf("%u.%u.%u.%u", p[4], p[3], p[2], p[1])
+}
+
+function get_used(subnet,        arpa, cmd, rec, words, ip, nrecs)
+{
+	arpa = itor(subnet)
+	delete used # Clear global
+	cmd = sprintf("host -l %s %s 2> /dev/null && echo success",
+		arpa, server)
+	nrecs = 0
+	while (cmd | getline rec > 0) {
+		if (rec !~ / domain name pointer /) continue
+		nrecs++
+		delete words # Pedantic
+		split(rec, words, /[[:space:]]+/)
+		ip = rtoa(words[1])
+		used[ip]
+	}
+	close(cmd)
+	if (rec != "success") {
+		warn(sprintf("Unable to transfer zone: %s", $0))
+		return 0
+	}
+	if (nrecs == 0) {
+		warn(sprintf("Empty zone: %s", $0))
+		return 0
+	}
+	return 1
+}
+
+function warn(msg)
+{
+	if (console)
+		printf "\033[33;1mWARNING!\033[m %s\n", msg > stderr
+	else
+		printf "WARNING! %s\n", msg > stderr
+	fflush(stderr)
+}
+
+function emit(str)
+{
+	printf "%s", str
+	fflush()
+}
+
+function erase()
+{
+	if (!console) return
+	emit("\r\033[K")
+}
+
+function puts(str)
+{
+	emit(str "\n")
+}
+
+function is_available(ip,        cmd, buf)
+{
+	if (ping) {
+		if (console) emit(sprintf("\033[2mChecking %s ... \033[m", ip))
+		cmd = sprintf("ping -c1 %s && echo success", ip)
+		while (cmd | getline buf > 0) { }
+		erase()
+		if (buf == "success") {
+			warn(sprintf("%s in use but not in DNS", ip))
+			return 0
+		}
+	}
+	puts(ip)
+	return 1
+}
+
+################################################## MAIN
+
+{
+	if (!match($0, "/[0-9]+$")) {
+		warn(sprintf("Invalid argument: %s", $0))
+		next
+	}
+	bits = substr($0, RSTART + 1)
+	netb = substr($0, 1, RSTART - 1)
+	inet = atoi(netb)
+	imask = mask(bits)
+	rmask = and(compl(imask), 4294967295)
+	network = and(inet, imask)
+	broadcast = or(inet, rmask)
+
+	for (subnet = network; subnet < broadcast; subnet += 256) {
+		if (!get_used(subnet)) continue # Get already-used addresses
+		for (inum = subnet; inum < subnet + 256; inum++) {
+			if (inum == network || inum == broadcast) continue
+			ip = itoa(inum)
+			if (ip in blacklist) continue
+			if (ip in used) continue
+			if (is_available(ip) && !show_all) exit
+		}
+	}
+}
+' # END-QUOTE
+
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################
