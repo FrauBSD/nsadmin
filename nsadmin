@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-25 20:45:45 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-26 12:12:00 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,23 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.1
+# 		- Fix editmaster() read-only issue on re-edits
+# 		- Fix unnecessary compound string in sigquit()
+# 		- Re-checkout /rm'd zones on unclean exit
+# 		- Remove /new'd zones on unclean exit
+# 		- Make /rm require config regeneration and edit desc
+# 		- Add `-u' and `-v' command-line options to checkout()
+# 		- Use checkout() in newzone() instead of one-off `co'
+# 		- Ensure /rm'd zones/revs are not resolvable after rm
+# 		- Prevent `/' commands in view mode
+# 		- Improve vimcat handling
+# 		- Warn user when journal file exists
+# 		- Move `local' definitions in rmzone() to top of function
+# 		- Always forcefully lock files before ci in checkin()
+# 		- Highlight rm'd zones as-such (red) during backups
+# 		- Print config file paths during genconf()
+# 		- Reset traps before entering generation stage
 # 	Oct 2019: Release 4.9
 # 		- Move vim filetype hint to top of new zone template
 # 		- Move command-line option global definitions
@@ -242,7 +259,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9 $'
+VERSION='$Version: 4.9.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -277,7 +294,10 @@ changes=				# Have changes been made?
 failfile=				# File that failed zonetest()
 failtype=				# Type of file that failed
 locked=					# Lock obtained by getlock()
+newzones=				# Newly created zones
 ransig=					# Ran sigquit() or not
+rmdrevs=				# Rev maps of removed zones
+rmdzones=				# Removed zones
 rootfail=				# Exited due to running as root
 sep=$( printf %75s | tr " " - )		# Separator
 sepdbl=$( printf %20s | tr " " = )	# Double separator
@@ -338,6 +358,7 @@ usage()
 # 	-d          Enable debug messages printed to stderr
 # 	-i          Initialize files to zero length
 # 	-l          List subnets on stdout and exit
+# 	-r          List reverse arpa subnets on stdout and exit
 # 	-S          Use sudo
 # 	-s subnet   Process only subnet from $file
 # 	-V          Verify contents and exit. Implies `-d'
@@ -579,6 +600,7 @@ function split6(ip, nibbles,        n, ip4, octs, s, i, nibs, nib, k)
 
 BEGIN {
 	if (console || verify) debug = 1
+	if (list_reverse) list_subnets = 1
 	vstatus = 0
 
 	subnet = tolower(subnet)
@@ -622,7 +644,7 @@ BEGIN {
 			split(ip, oct, /\./)
 			net = sprintf("%u.%u.%u", oct[1], oct[2], oct[3])
 			if (!list_subnets && subnet && net != subnet) continue
-			rev = sprintf(".new-%u.%u.%u", oct[3], oct[2], oct[1])
+			rev = sprintf("%u.%u.%u", oct[3], oct[2], oct[1])
 			ptr = sprintf("%u\t\t\t\t\tPTR\t%s%s%s.",
 				oct[4], rec == "@" ? "" : rec,
 				rec ~ /^@?$/ ? "" : ".", file)
@@ -641,7 +663,7 @@ BEGIN {
 				nib[13], nib[14], nib[15], nib[16])
 			if (!list_subnets && subnet && tolower(net) != subnet)
 				continue
-			rev = tolower(sprintf(".new-" \
+			rev = tolower(sprintf( \
 				"%s.%s.%s.%s." \
 				"%s.%s.%s.%s." \
 				"%s.%s.%s.%s." \
@@ -665,10 +687,14 @@ BEGIN {
 		} else {
 			continue
 		}
-		if (list_subnets) {
-			subnets[net] = 1
+		if (list_subnets || list_reverse) {
+			if (list_reverse)
+				subnets[rev] = 1
+			else
+				subnets[net] = 1
 			continue
 		}
+		rev = ".new-" rev
 		if (initialize && !(rev in initialized)) {
 			printf "" > rev
 			initialized[rev] = 1
@@ -707,6 +733,7 @@ zone2rev()
 	local console=0
 	local debug=0
 	local initialize=0
+	local list_reverse=0
 	local list_subnets=0
 	local subnet=
 	local sudo=
@@ -714,12 +741,13 @@ zone2rev()
 	local view=
 	local OPTIND=1 OPTARG flag
 
-	while getopts cdilSs:Vv: flag; do
+	while getopts cdilrSs:Vv: flag; do
 		case "$flag" in
 		c) console=1 ;;
 		d) debug=1 ;;
 		i) initialize=1 ;;
 		l) list_subnets=1 ;;
+		r) list_reverse=1 ;;
 		S) sudo=1 ;;
 		s) subnet="$OPTARG" ;;
 		V) verify=1 ;;
@@ -732,6 +760,7 @@ zone2rev()
 		-v debug=$debug \
 		-v file="$1" \
 		-v initialize=$initialize \
+		-v list_reverse=$list_reverse \
 		-v list_subnets=$list_subnets \
 		-v subnet="$subnet" \
 		-v verify=$verify \
@@ -755,6 +784,7 @@ editmaster()
 	cd "$nsadmindir"
 	checkout "$file"
 
+	chmod ug+w "$file"
 	${EDITOR:-vi} "$file"
 	verify "$file"
 
@@ -928,6 +958,9 @@ genrev()
 	for view in $views; do
 		msg " VIEW: $view/rev"
 
+		# Truncate subnets belonging to removed zones
+		for n in $rmdrevs; do :> ".new-$n"; done
+
 		list="${updzones:-$( ls -d [a-z0-9]* )}"
 		for excl in $exclude; do
 			list=$( echo "$list" | sed -e "s/$excl//" )
@@ -981,6 +1014,19 @@ genrev()
 		done
 	done
 	cd - > /dev/null
+}
+
+# colorize [file ...]
+#
+# Print file contents (or stdin) colorized. Requires vimcat.
+#
+colorize()
+{
+	if have vimcat; then
+		vimcat "$@" | awk 'NR==1{next}gsub(/\r/,"")||1'
+	else
+		cat "$@"
+	fi
 }
 
 # genzone zone ...
@@ -1043,13 +1089,7 @@ genzone()
 			fi
 			if [ "$diff" ]; then
 				echo "$diff" | awk '$0="   "$0' >> "$log"
-				have vimcat && diff=$(
-					echo "$diff" | vimcat | awk 'NR>1'
-				)
-				echo "$diff" | awk '{
-					sub(/^\r/,"")
-					print "    ", $0
-				}'
+				echo "$diff" | colorize | awk '$0="     "$0'
 			fi
 		done
 
@@ -1099,7 +1139,7 @@ revunq()
 #
 genconf()
 {
-	local view file zone master_conf rev_conf
+	local view file filename zone master_conf rev_conf x
 	local prefix='^[[:space:]]*$ORIGIN\>.*'
 	local suffix='\.arpa\.\([[:space:]]\|$\)'
 	local ip4arpa="$prefix"'\.in-addr'"$suffix"
@@ -1133,8 +1173,20 @@ genconf()
 		:| sudo tee "$rev_conf"
 		for file in "$nameddir/$view"/rev/*; do
 			[ -e "$file" ] || continue
+			filename="${file##*/}"
+			for x in $rmdrevs; do
+				[ "$x" = "$filename" ] || continue
+				printf "\t  \033[31;2m-> %s\033[m\n" "$file"
+				sudo rm -f "$file"
+				break
+			done
+			[ -e "$file" ] || continue
+			printf "\t  \033[2m-> %s\033[m\n" "$file"
 			case "$file" in
-			*.jnl) continue ;;
+			*.jnl) # Journal file
+				msg "WARNING: $file exists" \
+				    "(\`rndc freeze' may be required)"
+				continue ;;
 			esac
 			zone="${file##*/}"
 			grep -q "$ip4arpa" "$file" && {
@@ -1332,11 +1384,40 @@ sigquit()
 			cp "$file" "$res"
 		done
 		checkin
-		msg "ERROR":" rolling back NAMEDB zone files"
+		msg "ERROR: rolling back NAMEDB zone files"
 		subj="nsadmin: ERROR: $( date ): $USER"
 	else
 		checkin
 		subj="nsadmin: $( date ): $USER"
+	fi
+
+	# Checkout zones that were rm'd before we could regenerate configs
+	if [ "$rmdzones" ]; then
+		msg "ERROR: nsadmin killed after zones were removed:" \
+		    "rolling back"
+		for file in $rmdzones; do
+			# Do not attempt to check out rm'd rev maps
+			case "$file" in
+			/*) checkout "$file" ;;
+			esac
+		done
+		checkin
+		subj="nsadmin: $( date ): $USER"
+	fi
+
+	# Remove unblank/new zones that were resurrected before genconf()
+	if [ "$newzones" ]; then
+		msg "ERROR: nsadmin killed after zones resurrected:" \
+		    "rolling back"
+		for file in $newzones; do
+			case "$file" in
+			/*) # Full path
+				rm -f "$file"
+				;;
+			*) # Relative path
+				rm -f "$nsadmindir/$file"
+			esac
+		done
 	fi
 
 	date=$( date )
@@ -1406,17 +1487,19 @@ zonemenu()
 			break
 		fi
 
-		case "$zone" in
-		/*)
-			case "$rest" in
-			*[!0-9a-zA-Z-.]*) # Invalid domain name
-				eval ${zone#/}zone
-				;;
-			*)
-				eval ${zone#/}zone $rest
+		if [ "$editmode" ]; then
+			case "$zone" in
+			/*)
+				case "$rest" in
+				*[!0-9a-zA-Z-.]*) # Invalid domain name
+					eval ${zone#/}zone
+					;;
+				*)
+					eval ${zone#/}zone $rest
+				esac
+				continue
 			esac
-			continue
-		esac
+		fi
 
 		echo
 		if [ ! "$zone" ]; then
@@ -1441,11 +1524,7 @@ zonemenu()
 				updzones="$zone"
 			fi
 		else
-			if have vimcat; then
-				vimcat "$zone" | ${PAGER:-less -r}
-			else
-				${PAGER:-less} "$zone"
-			fi
+			colorize "$zone" | ${PAGER:-less -R}
 		fi
 	done
 }
@@ -1471,6 +1550,7 @@ newzone()
 {
 	local err
 	local checkout new
+	local append n
 	local zone
 
 	if [ "$1" ]; then
@@ -1514,11 +1594,22 @@ newzone()
 		esac
 
 		if [ "$checkout" ]; then
-			if ! ( cd "$nsadmindir" && co -u "$zone" )
-			then
+			if ! checkout -uv "$zone"; then
 				msg "   Zone checkout failed: $( date )"
 			else
 				msg "   Zone $zone checked out: $( date )"
+				changes=1
+
+				# Append zone to list of those newly co'd
+				# NB: Allows us to rm it on unclean exit
+				append=1
+				for n in $newzones; do
+					[ "$n" != "$zone" ] && continue
+					append=
+					break
+				done
+				[ "$append" ] &&
+					newzones="$newzones${newzones:+ }$zone"
 			fi
 			pause
 			return
@@ -1579,8 +1670,11 @@ newzonefile()
 #
 rmzone()
 {
-	local zone
 	local ans
+	local file
+	local subnets
+	local x r
+	local zone
 
 	if [ "$1" ]; then
 		zone="$1"
@@ -1598,7 +1692,7 @@ rmzone()
 		;;
 	esac
 
-	local file="$nsadmindir/$zone"
+	file="$nsadmindir/$zone"
 
 	if ! [ -e "$file" ]; then
 		msg "Zone $zone does not exist: $( date )"
@@ -1613,11 +1707,32 @@ rmzone()
 	*) return
 	esac
 
+	# Get a list of rev maps that we need to zero-out
+	subnets=$( zone2rev -r "$file" )
+
 	if ! sudo rm -f "$file"; then
 		pause
 		return
 	fi
 
+	rmdzones="$rmdzones${rmdzones:+ }$file${subnets:+ }$subnets"
+	[ "$subnets" ] && rmdrevs="$rmdrevs${rmdrevs:+ }$subnets"
+
+	# Elide removed zone from newzones and updzones
+	r=
+	for x in $newzones; do
+		[ "$x" = "$zone" -o "$x" = "$file" ] && continue
+		r="$r${r:+ }$x"
+	done
+	newzones="$r"
+	r=
+	for x in $updzones; do
+		[ "$x" = "$zone" -o "$x" = "$file" ] && continue
+		r="$r${r:+ }$x"
+	done
+	updzones="$r"
+		 
+	changes=1
 	msg "   Removed $zone zone: $( date )"
 	sleep 1
 }
@@ -1645,24 +1760,38 @@ checkin()
 		esac
 		sudo chown "$binduser:$bindgroup" "$file"
 		sudo chmod 0440 "$file"
-		[ "$sync" ] && rcs -l "$file"
+		rcs -l "$file"
 		echo "$USER: $( date )" | ci -u "$file" #? > /dev/null 2>&1
 		sudo chown "$binduser:$bindgroup" "$rcsfile"
 		sudo chmod 0660 "$rcsfile"
 	done
 }
 
-# checkout [-u] file
+# checkout [-uv] file
 #
 # Using RCS, check out the master file for editing.
 #
 checkout()
 {
+	local OPTIND=1 OPTARG flag
 	local cnt=1
-	local file="$1"
+	local file
+	local unlocked=
+	local verbose=
 
-	sudo chown "$USER" "$file"
-	sudo chmod 0440 "$file"
+	while getopts uv flag; do
+		case "$flag" in
+		u) unlocked=1 ;;
+		v) verbose=1 ;;
+		esac
+	done
+	shift $(( $OPTIND - 1 ))
+
+	file="$1"
+	if [ -e "$file" ]; then
+		sudo chown "$USER" "$file"
+		sudo chmod 0440 "$file"
+	fi
 
 	while eval [ \"\$colist_$cnt\" ]; do
 		eval [ \"\$file\" = \"\$colist_$cnt\" ] && return
@@ -1670,7 +1799,19 @@ checkout()
 	done
 	eval colist_$cnt=\"\$file\"
 
-	:| co -l "$file" > /dev/null 2>&1
+	if [ "$unlocked" ]; then
+		if [ "$verbose" ]; then
+			co -u "$file"
+		else
+			co -u "$file" > /dev/null 2>&1
+		fi
+	else
+		if [ "$verbose" ]; then
+			:| co -l "$file"
+		else
+			:| co -l "$file" > /dev/null 2>&1
+		fi
+	fi
 }
 
 # getsubnets file
@@ -1720,6 +1861,12 @@ pushzones()
 			[ ! -e "$dir" ] || continue
 			mkdir -p -m 0770 "$dir"
 			sudo chown "$binduser:$bindgroup" "$dir"
+		done
+		for file in $rmdzones; do
+			file="$view/master/${file##*/}"
+			[ -e "$file" ] || continue
+			printf "\t  \033[31;2m-> %s\033[m\n" "$file"
+			sudo rm -f "$file"
 		done
 		for file in $( find "$view" -type f ! -name ".bak-*" ); do
 			res=$( echo "$file" |
@@ -1799,11 +1946,7 @@ verify()
 
 	echo "$res" | tee -a "$log"
 	diff=$( rcsdiff -u "$file" )
-	if have vimcat; then
-		echo "$diff" | vimcat | ${PAGER:-less -F -r}
-	else
-		echo "$diff" | ${PAGER:-less -F}
-	fi
+	echo "$diff" | colorize | ${PAGER:-less -F -R}
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
 
@@ -1892,11 +2035,7 @@ vprompt()
 	sep "# nsadmin: $file changes"
 
 	diff=$( rcsdiff -u "$file" )
-	if have vimcat; then
-		echo "$diff" | vimcat | ${PAGER:-less -F -r}
-	else
-		echo "$diff" | ${PAGER:-less -F}
-	fi
+	echo "$diff" | colorize | ${PAGER:-less -F -R}
 	echo "$diff" | awk '$0="  "$0' >> "$log"
 	echo >> "$log"
 
@@ -2237,7 +2376,18 @@ fi
 #
 # If there are changes to the master files, generate the zones
 #
-[ "$updzones" ] || exit $SUCCESS
+[ "$updzones" -o "$newzones" -o "$rmdzones" ] || exit $SUCCESS
+if [ "$newzones" ]; then
+	# Mark new zones as updated so that they get published
+	for n in $newzones; do
+		u=
+		for u in $updzones; do
+			[ "$u" = "$n" ] && break
+		done
+		[ "$u" = "$n" ] && continue
+		updzones="$updzones${updzones:+ }$n"
+	done
+fi
 if [ "$sync" ]; then
 	msg "File generation called by sync option."
 	msg "Files: $updzones"
@@ -2272,6 +2422,7 @@ else
 		cat "$tmpfile" >> "$log"
 	) || exit
 fi
+trap - EXIT SIGHUP SIGINT SIGQUIT SIGTERM
 genmaster
 pushzones
 dnsreload
