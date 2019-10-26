@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-25 18:05:53 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-25 20:45:45 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,11 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9
+# 		- Move vim filetype hint to top of new zone template
+# 		- Move command-line option global definitions
+# 		- Fix `-n slave[,...]' config override
+# 		- Show diff when importing changes detected during sync
 # 	Oct 2019: Release 4.8.9
 # 		- If running as root, require new `-u user' option
 # 		- Check user after sourcing config so we can write to log
@@ -237,7 +242,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.8.9 $'
+VERSION='$Version: 4.9 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -253,8 +258,12 @@ FAILURE=1
 #
 # Command-line options
 #
-syncall=	# -a
 USER=		# -u user
+editmode=	# -e
+sync=		# -s
+syncall=	# -a
+updzones=	# -l file[,...] (also used to track edited zones)
+slaves=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
 
 #
 # OS Glue
@@ -265,7 +274,6 @@ USER=		# -u user
 # Miscellaneous
 #
 changes=				# Have changes been made?
-editmode=				# Run in edit mode
 failfile=				# File that failed zonetest()
 failtype=				# Type of file that failed
 locked=					# Lock obtained by getlock()
@@ -275,10 +283,8 @@ sep=$( printf %75s | tr " " - )		# Separator
 sepdbl=$( printf %20s | tr " " = )	# Double separator
 subnets=				# Subnets changed for rev maps
 sudofail=				# No sudo in sigquit() if failed
-sync=					# Run in sync mode
 synccnt=0				# Number of files sync'd
 update=					# Stage of master file updates
-updzones=				# Updated zones
 vfail=					# Verify failed
 
 ############################################################ FUNCTIONS
@@ -983,6 +989,7 @@ genrev()
 #
 genzone()
 {
+	local diff=
 	local file
 	local list="$*" # edited zones
 	local origin
@@ -1026,6 +1033,24 @@ genzone()
 					sub(/;.*/, "")
 				print
 			}' "$nsadmindir/$file" >> "$file"
+
+			#
+			# Generate diff in sync mode if there are changes
+			#
+			if [ "$sync" ]; then
+				diff=$( cd "$nsadmindir" &&
+					rcsdiff -u "$file" 2> /dev/null )
+			fi
+			if [ "$diff" ]; then
+				echo "$diff" | awk '$0="   "$0' >> "$log"
+				have vimcat && diff=$(
+					echo "$diff" | vimcat | awk 'NR>1'
+				)
+				echo "$diff" | awk '{
+					sub(/^\r/,"")
+					print "    ", $0
+				}'
+			fi
 		done
 
 		cd - > /dev/null
@@ -1542,10 +1567,9 @@ newzonefile()
 	;---------------------------------------------------------------------
 	; $zone zone map
 	;---------------------------------------------------------------------
-
-
-
 	; vi:ft=bindzone
+
+
 	EOF
 }
 
@@ -2080,7 +2104,9 @@ esac
 #
 # Load config
 #
+__slaves="$slaves"
 . "$NSADMIN_CONF" || exit
+[ "$__slaves" ] && slaves="$__slaves"
 
 # Make sure log exists
 [ "$log" ] ||
