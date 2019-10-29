@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9.2
+Version: 4.9.3
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,16 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Mon Oct 28 2019 Devin Teske <dteske@fraubsd.org> 4.9.3-1
+- 0d15f37 Add /mv command
+- 0d15f37 Make globals all-caps
+- 0d15f37 Remove signal management variable (ransig)
+- 0d15f37 Remove unused variable (vfail)
+- 0d15f37 Improve security around /-command execution
+- 0d15f37 Display deleted zones in menu, greyed-out
+- 0d15f37 Add details on edit how to resurrect removed zones
+* Sat Oct 26 2019 Devin Teske <dteske@fraubsd.org> 4.9.2-1
+- e372af8 Bug fixes
 * Sat Oct 26 2019 Devin Teske <dteske@fraubsd.org> 4.9.1-1
 - 83a622b Fix editmaster() read-only issue on re-edits
 - 83a622b Fix unnecessary compound string in sigquit()
