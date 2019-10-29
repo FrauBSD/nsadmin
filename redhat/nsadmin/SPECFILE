@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9.4
+Version: 4.9.5
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,10 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Oct 29 2019 Devin Teske <dteske@fraubsd.org> 4.9.5-1
+- 9889cf6 Hide zone history unless in edit mode
+- 9889cf6 Add /log command
+- 9889cf6 Enable commands in view mode (/log only)
 * Tue Oct 29 2019 Devin Teske <dteske@fraubsd.org> 4.9.4-1
 - 96e3a51 Improve handling of commit message
 - 96e3a51 Add user-provided commit message to checkin()
