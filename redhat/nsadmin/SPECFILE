@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9.3
+Version: 4.9.4
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,10 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Oct 29 2019 Devin Teske <dteske@fraubsd.org> 4.9.4-1
+- 96e3a51 Improve handling of commit message
+- 96e3a51 Add user-provided commit message to checkin()
+- 96e3a51 Optimize genconf() for performance
 * Mon Oct 28 2019 Devin Teske <dteske@fraubsd.org> 4.9.3-1
 - 0d15f37 Add /mv command
 - 0d15f37 Make globals all-caps
