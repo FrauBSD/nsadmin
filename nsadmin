@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-26 12:51:42 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-28 23:45:23 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,14 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.3
+# 		- Add /mv command
+# 		- Make globals all-caps
+# 		- Remove signal management variable (ransig)
+# 		- Remove unused variable (vfail)
+# 		- Improve security around /-command execution
+# 		- Display deleted zones in menu, greyed-out
+# 		- Add details on edit how to resurrect removed zones
 # 	Oct 2019: Release 4.9.2
 # 		- Revert reset of traps before generation tasks
 # 		- Whitespace
@@ -263,7 +271,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.2 $'
+VERSION='$Version: 4.9.3 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -280,11 +288,11 @@ FAILURE=1
 # Command-line options
 #
 USER=		# -u user
-editmode=	# -e
-sync=		# -s
-syncall=	# -a
-updzones=	# -l file[,...] (also used to track edited zones)
-slaves=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
+EDITMODE=	# -e
+SYNC=		# -s
+SYNCALL=	# -a
+UPDZONES=	# -l file[,...] (also used to track edited zones)
+SLAVES=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
 
 #
 # OS Glue
@@ -294,22 +302,22 @@ slaves=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
 #
 # Miscellaneous
 #
-changes=				# Have changes been made?
-failfile=				# File that failed zonetest()
-failtype=				# Type of file that failed
-locked=					# Lock obtained by getlock()
-newzones=				# Newly created zones
-ransig=					# Ran sigquit() or not
-rmdrevs=				# Rev maps of removed zones
-rmdzones=				# Removed zones
-rootfail=				# Exited due to running as root
-sep=$( printf %75s | tr " " - )		# Separator
-sepdbl=$( printf %20s | tr " " = )	# Double separator
-subnets=				# Subnets changed for rev maps
-sudofail=				# No sudo in sigquit() if failed
-synccnt=0				# Number of files sync'd
-update=					# Stage of master file updates
-vfail=					# Verify failed
+CHANGES=				# Have changes been made?
+FAILFILE=				# File that failed zonetest()
+FAILTYPE=				# Type of file that failed
+LOCKED=					# Lock obtained by getlock()
+MVJNL=					# Move journal for commit
+MVJNLREV=				# Reverse move journal for interrupt
+NEWZONES=				# Newly created zones
+RMDREVS=				# Rev maps of removed zones
+RMDZONES=				# Removed zones
+ROOTFAIL=				# Exited due to running as root
+SEP=$( printf %75s | tr " " - )		# Separator
+SEPDBL=$( printf %20s | tr " " = )	# Double separator
+SUBNETS=				# Subnets changed for rev maps
+SUDOFAIL=				# No sudo in sigquit() if failed
+SYNCCNT=0				# Number of files sync'd
+UPDATE=					# Stage of master file updates
 
 ############################################################ FUNCTIONS
 
@@ -814,7 +822,7 @@ getlock()
 	set -C
 	echo $$ > "$lock" || fatal "could not create '$lock'" # NOTREACHED
 	[ "$clobber" ] && set +C
-	locked=1
+	LOCKED=1
 }
 
 # predit
@@ -831,7 +839,7 @@ predit()
 
 	if ! sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
 	then
-		sudofail=rm
+		SUDOFAIL=rm
 		exit $FAILURE
 	fi
 
@@ -886,23 +894,23 @@ genmaster()
 	# Save the master files that have changes to make sure they
 	# are not lost in the loop'ing below.
 	#
-	echo "$updzones" > "$nsadmindir/.updzones"
+	echo "$UPDZONES" > "$nsadmindir/.updzones"
 
 	#
 	# Generate a list of all subnets in the master file
 	#
-	if [ "$sync" ]; then
+	if [ "$SYNC" -o "$MVJNL" ]; then
 		for subnet in $(
-			for file in $updzones; do
+			for file in $UPDZONES; do
 				zone2rev -l "$file"
 			done | sort -u
 		); do
-			# Only insert subnet if not existing in $subnets
-			echo "$subnets" | grep -q "\\<$(
+			# Only insert subnet if not existing in $SUBNETS
+			echo "$SUBNETS" | grep -q "\\<$(
 				echo "$subnet" | sed -e 's/\./\\&/g'
-			)$subnet\\>" || subnets="$subnets $subnet"
+			)$subnet\\>" || SUBNETS="$SUBNETS $subnet"
 		done
-		subnets="${subnets# }"
+		SUBNETS="${SUBNETS# }"
 	fi
 
 	#
@@ -917,7 +925,7 @@ genmaster()
 		genrev
 
 		zonetest
-		[ "$failfile" ] || break
+		[ "$FAILFILE" ] || break
 
 		printf "\n\033[1mPress return when ready to re-edit.\033[m"
 		stty -echo
@@ -932,10 +940,10 @@ genmaster()
 		# XXX zone to edit instead of relying on the user to
 		# XXX remember which file had errors.
 		#
-		if [ "$failtype" = rev ]; then
+		if [ "$FAILTYPE" = rev ]; then
 			zonemenu
 		else
-			editmaster "$failfile"
+			editmaster "$FAILFILE"
 		fi
 	done
 }
@@ -963,9 +971,9 @@ genrev()
 		msg " VIEW: $view/rev"
 
 		# Truncate subnets belonging to removed zones
-		for n in $rmdrevs; do :> ".new-$n"; done
+		for n in $RMDREVS; do :> ".new-$n"; done
 
-		list="${updzones:-$( ls -d [a-z0-9]* )}"
+		list="${UPDZONES:-$( ls -d [a-z0-9]* )}"
 		for excl in $exclude; do
 			list=$( echo "$list" | sed -e "s/$excl//" )
 		done
@@ -973,11 +981,11 @@ genrev()
 		n=1
 		t=$( set -- $list; echo $# )
 		zone2rev_debug=
-#?		[ "$sync" ] && zone2rev_debug=-d # Testing -- Devin
+#?		[ "$SYNC" ] && zone2rev_debug=-d # Testing -- Devin
 		for file in $list; do
 			printf "  \033[2m%-30s \033[1m%4u/%-4u\033[m\n" \
 				"[$file]" $n $t
-			for subnet in $subnets; do
+			for subnet in $SUBNETS; do
 #?				printf "  \033[3m-> $subnet\033[m\n"
 #?					# Testing -- Devin
 				zone2rev -S $zone2rev_debug \
@@ -1087,7 +1095,7 @@ genzone()
 			#
 			# Generate diff in sync mode if there are changes
 			#
-			if [ "$sync" ]; then
+			if [ "$SYNC" ]; then
 				diff=$( cd "$nsadmindir" &&
 					rcsdiff -u "$file" 2> /dev/null )
 			fi
@@ -1178,7 +1186,7 @@ genconf()
 		for file in "$nameddir/$view"/rev/*; do
 			[ -e "$file" ] || continue
 			filename="${file##*/}"
-			for x in $rmdrevs; do
+			for x in $RMDREVS; do
 				[ "$x" = "$filename" ] || continue
 				printf "\t  \033[31;2m-> %s\033[m\n" "$file"
 				sudo rm -f "$file"
@@ -1239,7 +1247,7 @@ dnsreload()
 		sudo service named start
 		if pgrep named > /dev/null; then
 			msg "Manual restart succeeded: $( date )"
-			update=0
+			UPDATE=0
 			return
 		fi
 
@@ -1258,7 +1266,7 @@ dnsreload()
 		sudo service named start
 		if pgrep named > /dev/null; then
 			msg "Roll-back succeeded: $( date )"
-			update=0
+			UPDATE=0
 			return
 		fi
 
@@ -1268,11 +1276,11 @@ dnsreload()
 				-s "nsadmin: roll-back failed" "$critical"
 		fi
 		fatal "roll-back failed ... giving up" # NOTREACHED
-		update=2
+		UPDATE=2
 
 	fi
 
-	update=0 # successful update/reload
+	UPDATE=0 # successful update/reload
 }
 
 # fatal $text ...
@@ -1285,7 +1293,7 @@ fatal()
 	echo
 	echo " Fatal Error: $*" | tee -a "$log"
 	echo
-	[ "$rootfail" ] && rm -f "$log"
+	[ "$ROOTFAIL" ] && rm -f "$log"
 	exit $FAILURE
 }
 
@@ -1296,13 +1304,13 @@ fatal()
 sep()
 {
 	local color="34;"
-	local sepsep="$sep"
+	local sepsep="$SEP"
 	local OPTIND=1 OPTARG flag
 
 	while getopts c:dn flag; do
 		case "$flag" in
 		c) color="$OPTARG${OPTARG:+;}" ;;
-		d) sepsep="$sepdbl" ;;
+		d) sepsep="$SEPDBL" ;;
 		n) sepsep= ;;
 		esac
 	done
@@ -1318,12 +1326,12 @@ sep()
 #
 log()
 {
-	local logsep="$sep"
+	local logsep="$SEP"
 	local OPTIND=1 OPTARG flag
 
 	while getopts dn flag; do
 		case "$flag" in
-		d) logsep="$sepdbl" ;;
+		d) logsep="$SEPDBL" ;;
 		n) logsep= ;;
 		esac
 	done
@@ -1356,11 +1364,10 @@ sigquit()
 	local date
 	local excl
 	local file
+	local move from to
 	local res
 	local skip
 	local subj
-
-	[ "$ransig" ] && return
 
 	stty echo
 	echo
@@ -1369,7 +1376,7 @@ sigquit()
 
 	cd "$nsadmindir"
 
-	if [ ${update:=0} -eq 1 ]; then
+	if [ ${UPDATE:=0} -eq 1 ]; then
 		msg "ERROR: nsadmin killed after changes were" \
 		    "made to master files: rolling back"
 		for file in .bak-*; do
@@ -1379,7 +1386,7 @@ sigquit()
 		done
 		checkin
 		subj="nsadmin: ERROR: $( date ): $USER"
-	elif [ ${update:=0} -eq 2 ]; then
+	elif [ ${UPDATE:=0} -eq 2 ]; then
 		msg "ERROR: nsadmin killed after files were" \
 		    "updated in the NAMEDB directory: rolling back"
 		for file in .bak-*; do
@@ -1395,11 +1402,27 @@ sigquit()
 		subj="nsadmin: $( date ): $USER"
 	fi
 
+	if [ "$MVJNLREV" ]; then
+		msg "ERROR: nsadmin killed after zones were moved:" \
+		    "rolling back"
+		# Play each move in reverse order to undo all moves
+		for move in $MVJNLREV; do
+			from="${move%%->*}"
+			to="${move#"$from"->}"
+			# NB: Earlier chown to user prevents need for sudo
+			# which could prevent exit if validation timed-out.
+			# Leaving files owned by last user is OK.
+			[ -e "$to" ] && mv "$to" "$from"
+			[ -e "RCS/$to,v" ] &&
+				mv "RCS/$to,v" "RCS/$from,v"
+		done
+	fi
+
 	# Checkout zones that were rm'd before we could regenerate configs
-	if [ "$rmdzones" ]; then
+	if [ "$RMDZONES" ]; then
 		msg "ERROR: nsadmin killed after zones were removed:" \
 		    "rolling back"
-		for file in $rmdzones; do
+		for file in $RMDZONES; do
 			# Do not attempt to check out rm'd rev maps
 			case "$file" in
 			/*) checkout "$file" ;;
@@ -1410,10 +1433,10 @@ sigquit()
 	fi
 
 	# Remove unblank/new zones that were resurrected before genconf()
-	if [ "$newzones" ]; then
+	if [ "$NEWZONES" ]; then
 		msg "ERROR: nsadmin killed after zones resurrected:" \
 		    "rolling back"
-		for file in $newzones; do
+		for file in $NEWZONES; do
 			case "$file" in
 			/*) # Full path
 				rm -f "$file"
@@ -1433,15 +1456,15 @@ sigquit()
 			-s "$subj" "$admin"
 	fi
 
-	if [ ! "$sudofail" ]; then
+	if [ ! "$SUDOFAIL" ]; then
 		sudo rm -rf "$lock" "$log" "$tmp" \
 			.bak-* .revunq .updzones .view*
 
 		# XXX Save the older version in case of emergency.
 		#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
-	elif [ "$locked" ]; then
+	elif [ "$LOCKED" ]; then
 		rm -f "$lock" "$log"
-		locked=
+		LOCKED=
 	fi
 
 	#
@@ -1460,8 +1483,6 @@ sigquit()
 	done
 
 	cd - > /dev/null 2>&1
-
-	ransig=1
 }
 
 # zonemenu
@@ -1471,14 +1492,15 @@ sigquit()
 zonemenu()
 {
 	local zone rest
+	local from to
 
 	while :; do
 		zonelist
 
 		printf "\n\033[1m Please choose a zone to"
-		if [ "$editmode" ]; then
+		if [ "$EDITMODE" ]; then
 			printf " edit "
-		elif [ "$sync" ]; then
+		elif [ "$SYNC" ]; then
 			printf " sync "
 		else
 			printf " view "
@@ -1491,17 +1513,35 @@ zonemenu()
 			break
 		fi
 
-		if [ "$editmode" ]; then
+		if [ "$EDITMODE" ]; then
 			case "$zone" in
-			/*)
+			/q|/Q) # Same as Q or q above
+				break ;;
+			/new|/rm)
 				case "$rest" in
-				*[!0-9a-zA-Z-.]*) # Invalid domain name
-					eval ${zone#/}zone
-					;;
-				*)
-					eval ${zone#/}zone $rest
+				*[!0-9a-zA-Z-.]*) # Invalid argument
+					eval ${zone#/}zone ;;
+				*)	eval ${zone#/}zone $rest
 				esac
-				continue
+				continue ;;
+			/mv)
+				from="${rest%%[$IFS]*}"
+				to="${rest#"$from"}"
+				while [ "$to" != "${to#[$IFS]}" ]; do
+					to="${to#[$IFS]}"
+				done
+				if [ "$to" -a ! "$from" ]; then
+					from="$to"
+					to=
+				fi
+				case "$from$to" in
+				*[!0-9a-zA-Z.-]*) # Invalid arguments
+					mvzone ;;
+				*)	mvzone $from $to
+				esac
+				continue ;;
+			/*)
+				continue ;;
 			esac
 		fi
 
@@ -1510,22 +1550,24 @@ zonemenu()
 			continue
 		elif [ ! -f "$zone" ]; then
 			msg "   Zone file not found: '$zone'"
+			[ -e "RCS/$zone,v" ] &&
+				printf "     Use \`/new $zone' to restore.\n\n"
 			pause
 			continue
 		fi
 
-		if [ "$editmode" ]; then
+		if [ "$EDITMODE" ]; then
 			cp "$zone" ".bak-$zone" > /dev/null 2>&1
 			editmaster "$zone"
-		elif [ "$sync" ]; then
-			if [ "$updzones" ]; then
-				if ( ! echo "$updzones" | egrep \
+		elif [ "$SYNC" ]; then
+			if [ "$UPDZONES" ]; then
+				if ( ! echo "$UPDZONES" | egrep \
 		    		    "(^| |	)$zone(	| |$)" \
 		    		    > /dev/null 2>&1 ); then
-					updzones="$updzones $zone"
+					UPDZONES="$UPDZONES $zone"
 				fi
 			else
-				updzones="$zone"
+				UPDZONES="$zone"
 			fi
 		else
 			colorize "$zone" | ${PAGER:-less -R}
@@ -1602,18 +1644,18 @@ newzone()
 				msg "   Zone checkout failed: $( date )"
 			else
 				msg "   Zone $zone checked out: $( date )"
-				changes=1
+				CHANGES=1
 
 				# Append zone to list of those newly co'd
 				# NB: Allows us to rm it on unclean exit
 				append=1
-				for n in $newzones; do
+				for n in $NEWZONES; do
 					[ "$n" != "$zone" ] && continue
 					append=
 					break
 				done
 				[ "$append" ] &&
-					newzones="$newzones${newzones:+ }$zone"
+					NEWZONES="$NEWZONES${NEWZONES:+ }$zone"
 			fi
 			pause
 			return
@@ -1719,26 +1761,126 @@ rmzone()
 		return
 	fi
 
-	rmdzones="$rmdzones${rmdzones:+ }$file${subnets:+ }$subnets"
-	[ "$subnets" ] && rmdrevs="$rmdrevs${rmdrevs:+ }$subnets"
+	RMDZONES="$RMDZONES${RMDZONES:+ }$file${subnets:+ }$subnets"
+	[ "$subnets" ] && RMDREVS="$RMDREVS${RMDREVS:+ }$subnets"
 
-	# Elide removed zone from newzones and updzones
+	# Elide removed zone from NEWZONES and UPDZONES
 	r=
-	for x in $newzones; do
+	for x in $NEWZONES; do
 		[ "$x" = "$zone" -o "$x" = "$file" ] && continue
 		r="$r${r:+ }$x"
 	done
-	newzones="$r"
+	NEWZONES="$r"
 	r=
-	for x in $updzones; do
+	for x in $UPDZONES; do
 		[ "$x" = "$zone" -o "$x" = "$file" ] && continue
 		r="$r${r:+ }$x"
 	done
-	updzones="$r"
+	UPDZONES="$r"
 		 
-	changes=1
+	CHANGES=1
 	msg "   Removed $zone zone: $( date )"
 	sleep 1
+}
+
+# mvzone [$from [$to]]
+#
+# Handler for the /mv zone menu edit command.
+#
+mvzone()
+{
+	local from to n
+	local ans
+
+	if [ "$1" ]; then
+		from="$1"
+	else
+		printf "  Enter the name of the zone to move: "
+		read from
+	fi
+
+	case "$from" in
+	"") return ;;
+	..|.|*/*)
+		msg " Invalid zone \`$from': $( date )"
+		pause
+		return
+		;;
+	esac
+
+	if [ ! -e "$from" ] && [ ! -e "RCS/$from,v" ]; then
+		msg "Zone $from does not exist: $( date )"
+		pause
+		return
+	fi
+
+	if [ "$2" ]; then
+		to="$2"
+	else
+		printf "  Enter new name: "
+		read to
+	fi
+
+	case "$to" in
+	"") return ;;
+	..|.|*/*)
+		msg " Invalid zone \`$to': $( date )"
+		pause
+		return
+		;;
+	esac
+
+	if [ -e "$to" ]; then
+		msg "Zone $to already exists: $( date )"
+		pause
+		return
+	fi
+
+	if [ -e "RCS/$to,v" ]; then
+		msg "Cannot move $from, $to history exists: $( date )"
+		printf "\n  Use \`/mv $to' to move zone history first.\n\n"
+		pause
+		return
+	fi
+
+	printf "\n \033[1mMove $from to $to [N/y]?\033[m "
+	read ans
+	case "$ans" in
+	[Yy]|[Yy][Ee][Ss]) : ok ;;
+	*)
+		msg "   Cancelled, $from not moved to $to: $( date )"
+		pause
+		return
+	esac
+
+	#
+	# Move files
+	# NB: chown required so sigquit() can undo on interrupt (without sudo)
+	#
+	if ! sudo chown "$USER" "RCS/$from,v" ||
+	   ! mv "RCS/$from,v" "RCS/$to,v"
+	then
+		msg "   Failed to move RCS/$from,v to RCS/$to,v: $( date )"
+		pause
+		return
+	fi
+	if ! sudo chown "$USER" "$from" ||
+	   ! mv "$from" "$to"
+	then
+		msg "   Failed to move $from to $to: $( date )"
+		pause
+		return
+	fi
+
+	# Append action to forward move-jornal for commit
+	MVJNL="$MVJNL${MVJNL:+ }$from->$to"
+
+	# Prepend action to reverse move-journal for interrupt
+	MVJNLREV="$from->$to${MVJNLREV:+ }$MVJNLREV"
+
+	CHANGES=1
+	msg "   Moved $from zone to $to: $( date )"
+	pause
 }
 
 ############################################################ ZONE FUNCTIONS
@@ -1831,11 +1973,11 @@ getsubnets()
 		zone2rev -l - )
 	do
 		# Only insert subnet if not existing in $subnets
-		echo "$subnets" | grep -q "\\<$(
+		echo "$SUBNETS" | grep -q "\\<$(
 			echo "$subnet" | sed -e 's/\./\\&/g'
-		)$subnet\\>" || subnets="$subnets $subnet"
+		)$subnet\\>" || SUBNETS="$SUBNETS $subnet"
 	done
-	subnets="${subnets# }"
+	SUBNETS="${SUBNETS# }"
 }
 
 # pushzones
@@ -1866,7 +2008,7 @@ pushzones()
 			mkdir -p -m 0770 "$dir"
 			sudo chown "$binduser:$bindgroup" "$dir"
 		done
-		for file in $rmdzones; do
+		for file in $RMDZONES; do
 			file="$view/master/${file##*/}"
 			[ -e "$file" ] || continue
 			printf "\t  \033[31;2m-> %s\033[m\n" "$file"
@@ -1899,7 +2041,7 @@ pushzones()
 	cd - > /dev/null
 #?	sleep 2 # Testing -- Parker
 
-	for slave in $slaves; do
+	for slave in $SLAVES; do
 #?		clear # Testing -- Parker
 		sep "# nsadmin: Zone Push"
 		msg " Executing remove push to $slave: $( date )"
@@ -2009,16 +2151,16 @@ viewtest()
 			msg "ERROR: unknown views, valid views are" "'$views'"
 		fi
 
-		failtype=master
-		failfile="$1"
+		FAILTYPE=master
+		FAILFILE="$1"
 
 		return
 	fi
 
 	# checkin file on exit in sync mode (-s)
-	if [ "$sync" ]; then
-		synccnt=$(( $synccnt + 1 ))
-		eval colist_$synccnt=\"\$1\"
+	if [ "$SYNC" ]; then
+		SYNCCNT=$(( $SYNCCNT + 1 ))
+		eval colist_$SYNCCNT=\"\$1\"
 	fi
 
 	echo "	OK"
@@ -2055,16 +2197,16 @@ vprompt()
 	[yY])	echo
 		msg "$USER accepted changes: $( date )"
 		getsubnets "$file"
-		update=1 # First stage of dns updates
-		if [ "$updzones" ] && ! echo "$updzones" |
+		UPDATE=1 # First stage of dns updates
+		if [ "$UPDZONES" ] && ! echo "$UPDZONES" |
 		    egrep "(^| |	)$file(	| |$)" > /dev/null 2>&1
 		then
-			updzones="$updzones $file"
+			UPDZONES="$UPDZONES $file"
 		else
-			updzones="$file"
+			UPDZONES="$file"
 		fi
 		echo
-		changes=1
+		CHANGES=1
 		;;
 	*)	msg "$USER re-editing $file; $( date )"
 		editmaster "$file"
@@ -2080,20 +2222,46 @@ zonelist()
 	local cmd
 	local cnt
 	local col=0
+	local rcs=
 	local tab=
-	local zone
+	local zone zones
 
 	clear
-	if [ "$changes" ]; then
+	if [ "$CHANGES" ]; then
 		sep -c 31 "# nsadmin: Zone List (quit to save; ^C to revert)"
-	elif [ "$editmode" ]; then
+	elif [ "$EDITMODE" ]; then
 		sep -c 32 "# nsadmin: Zone List (Edit Mode)"
 	else
 		sep "# nsadmin: Zone List"
 	fi
 
-	for zone in [a-z0-9]*; do
-		[ -e "$zone" ] || continue
+	zones=$( for zone in [a-z0-9]* RCS/[a-z0-9]*,v; do
+		case "$zone" in
+		RCS/*,v) # History file
+			file="${zone#RCS/}"
+			file="${file%,v}"
+			[ -e "$file" ] && continue # See below
+			echo "$file!"
+			;;
+		*[!a-zA-Z0-9.-]*) # Invalid name
+			continue
+			;;
+		*) # Zone master file
+			echo "$zone"
+		esac
+	done | sort )
+
+	for zone in $zones; do
+		case "$zone" in
+		*!) # History file
+			zone="${zone%!}"
+			[ -e "RCS/$zone,v" ] || continue
+			rcs=1
+			;;
+		*)
+			[ -e "$zone" ] || continue
+			rcs=
+		esac
 		if echo "$exclude" |
 		    egrep "(^| |	)$zone(	| |$)" \
 		    > /dev/null 2>&1
@@ -2113,15 +2281,19 @@ zonelist()
 			echo
 			col=0
 		fi
-		printf "  %s$tab" "$zone"
+		if [ "$rcs" ]; then
+			printf "  \033[2m%s\033[m$tab" "$zone"
+		else
+			printf "  %s$tab" "$zone"
+		fi
 		col=$(( $col + 1 ))
 	done
 	printf "\n\n"
 
-	if [ "$editmode" ]; then
+	if [ "$EDITMODE" ]; then
 		col=0
 		printf " \033[1mEdit Commands:\033[m\n\n "
-		for cmd in /new /rm; do
+		for cmd in /new /rm /mv; do
 			if [ $col -ge 6 ]; then
 				printf "\n "
 				col=0
@@ -2143,8 +2315,8 @@ zonetest()
 	local _IFS="$IFS" IFS
 	local res
 
-	failfile=
-	failtype=
+	FAILFILE=
+	FAILTYPE=
 
 	for file in $( find "$tmp" -type f ); do
 		IFS=/
@@ -2162,7 +2334,7 @@ zonetest()
 
 		if [ "$2" = master ]; then
 			viewtest "$3"
-			[ "$failtype" ] && return
+			[ "$FAILTYPE" ] && return
 		fi
 
 		echo
@@ -2191,8 +2363,8 @@ zonetest()
 				END { exit status }
 			' # END-QUOTE
 		) && [ $( echo "$res" | wc -l ) -gt 2 ]; then
-			failtype="$2"
-			failfile="$3"
+			FAILTYPE="$2"
+			FAILFILE="$3"
 
 			echo "$res" | sed -e 's/.*\///;s/^/	/'
 			echo
@@ -2203,7 +2375,7 @@ zonetest()
 				sed -e "s/^/	/"
 			echo
 
-			msg "ERROR: zone test failed on $failfile"
+			msg "ERROR: zone test failed on $FAILFILE"
 
 			return
 		fi
@@ -2222,11 +2394,11 @@ zonetest()
 #
 while getopts "aehl:n:su:v?" flag; do
 	case "$flag" in
-	a) syncall=1 ;;
-	e) editmode=1 ;;
-	l) updzones=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
-	n) slaves=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
-	s) sync=1 ;;
+	a) SYNCALL=1 ;;
+	e) EDITMODE=1 ;;
+	l) UPDZONES=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
+	n) SLAVES=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
+	s) SYNC=1 ;;
 	u) USER="$OPTARG" ;;
 	v) VERSION="${VERSION#*: }"
 		echo "${VERSION% $}"
@@ -2247,9 +2419,9 @@ esac
 #
 # Load config
 #
-__slaves="$slaves"
+__slaves="$SLAVES"
 . "$NSADMIN_CONF" || exit
-[ "$__slaves" ] && slaves="$__slaves"
+[ "$__slaves" ] && SLAVES="$__slaves"
 
 # Make sure log exists
 [ "$log" ] ||
@@ -2258,10 +2430,10 @@ __slaves="$slaves"
 #
 # $USER required for all logging and auditability for edit/sync modes
 #
-if [ "$editmode$sync" ]; then
+if [ "$EDITMODE$SYNC" ]; then
 	if [ "$( id -nu )" = root ]; then
 		if [ ! "$USER" ]; then
-			rootfail=1
+			ROOTFAIL=1
 			fatal "root must pass \`-u user' with \`-e' or \`-s'"
 			# NOTREACHED
 		fi
@@ -2271,7 +2443,7 @@ if [ "$editmode$sync" ]; then
 		USER="$_USER"
 		unset _USER
 	elif [ "$USER" ]; then
-		rootfail=1
+		ROOTFAIL=1
 		fatal "only root can use \`-u user'"
 		# NOTREACHED
 	else
@@ -2289,7 +2461,7 @@ if [ ! -e "$nsadmindir" ]; then
 		parentdir="${nsadmindir%/*}"
 		if [ ! -e "$parentdir" ]; then
 			if ! sudo mkdir -p -v "$parentdir"; then
-				sudofail=mkdir
+				SUDOFAIL=mkdir
 				exit $FAILURE
 			fi
 		fi
@@ -2297,11 +2469,11 @@ if [ ! -e "$nsadmindir" ]; then
 		;;
 	esac
 	if ! sudo mkdir -p -v -m 1770 "$nsadmindir"; then
-		sudofail=mkdir
+		SUDOFAIL=mkdir
 		exit $FAILURE
 	fi
 	if ! sudo chown "$binduser:$bindgroup" "$nsadmindir"; then
-		sudofail=mkdir
+		SUDOFAIL=mkdir
 		exit $FAILURE
 	fi
 fi
@@ -2315,7 +2487,7 @@ cd "$nsadmindir" || exit
 #
 # Process -a
 #
-if [ "$syncall" ]; then
+if [ "$SYNCALL" ]; then
 	for file in *; do
 		[ -e "$file" ] || continue
 		skip=
@@ -2324,10 +2496,10 @@ if [ "$syncall" ]; then
 			skip=1
 			break
 		done
-		if [ ! "$skip" ] && [ ! "$updzones" ]; then
-			updzones="$file"
+		if [ ! "$skip" ] && [ ! "$UPDZONES" ]; then
+			UPDZONES="$file"
 		elif [ ! "$skip" ]; then
-			updzones="$updzones $file"
+			UPDZONES="$UPDZONES $file"
 		fi
 	done
 fi
@@ -2335,7 +2507,7 @@ fi
 #
 # Validate command-line arguments
 #
-if [ "$updzones" ] && [ ! "$sync" ]; then
+if [ "$UPDZONES" ] && [ ! "$SYNC" ]; then
 	msg "ERROR: '-l' or '-a' requires '-s'"
 	usage # NOTREACHED
 fi
@@ -2363,38 +2535,52 @@ fi
 if [ ! -e "$nsadmindir/RCS" ]; then
 	mkdir -p -m 0770 "$nsadmindir/RCS"
 	if ! sudo chown "$bindgroup:$binduser" "$nsadmindir/RCS"; then
-		sudofail=chown
+		SUDOFAIL=chown
 		exit $FAILURE
 	fi
 fi
 
 # Make sure only one person is building zone files at a time
-if [ "$editmode" ] || [ "$sync" ]; then
+if [ "$EDITMODE" ] || [ "$SYNC" ]; then
 	getlock
 	predit
 fi
 
 # Display zone menu unless -a/-l given
-[ "$updzones" ] || zonemenu
+[ "$UPDZONES" ] || zonemenu
 
 #
 # If there are changes to the master files, generate the zones
 #
-[ "$updzones" -o "$newzones" -o "$rmdzones" ] || exit $SUCCESS
-if [ "$newzones" ]; then
+[ "$UPDZONES$NEWZONES$RMDZONES$MVJNL" ] || exit $SUCCESS
+if [ "$MVJNL" ]; then
+	# Process move journal to determine what's new/removed
+	for u in $( for move in $MVJNL; do
+		from="${move%%->*}"
+		to="${move#"$from"->}"
+		printf "%s\n%s\n" "$from" "$to"
+	done | sort -u ); do
+		if [ -e "$u" ]; then
+			UPDZONES="$UPDZONES${UPDZONES:+ }$u"
+		else
+			RMDZONES="$RMDZONES${RMDZONES:+ }$u"
+		fi
+	done
+fi
+if [ "$NEWZONES" ]; then
 	# Mark new zones as updated so that they get published
-	for n in $newzones; do
+	for n in $NEWZONES; do
 		u=
-		for u in $updzones; do
+		for u in $UPDZONES; do
 			[ "$u" = "$n" ] && break
 		done
 		[ "$u" = "$n" ] && continue
-		updzones="$updzones${updzones:+ }$n"
+		UPDZONES="$UPDZONES${UPDZONES:+ }$n"
 	done
 fi
-if [ "$sync" ]; then
+if [ "$SYNC" ]; then
 	msg "File generation called by sync option."
-	msg "Files: $updzones"
+	msg "Files: $UPDZONES"
 else
 	# We need a description of why this is being done
 	( set -e
@@ -2429,8 +2615,9 @@ fi
 genmaster
 pushzones
 dnsreload
-newzones=
-rmdzones=
+MVJNLREV=
+NEWZONES=
+RMDZONES=
 
 exit $SUCCESS
 
