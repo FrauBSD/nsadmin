@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-28 23:45:23 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-29 01:35:10 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,10 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.4
+# 		- Improve handling of commit message
+# 		- Add user-provided commit message to checkin()
+# 		- Optimize genconf() for performance
 # 	Oct 2019: Release 4.9.3
 # 		- Add /mv command
 # 		- Make globals all-caps
@@ -271,7 +275,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.3 $'
+VERSION='$Version: 4.9.4 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -302,6 +306,7 @@ SLAVES=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
 #
 # Miscellaneous
 #
+COMMITMSG=				# User-provided commit message
 CHANGES=				# Have changes been made?
 FAILFILE=				# File that failed zonetest()
 FAILTYPE=				# Type of file that failed
@@ -1151,7 +1156,7 @@ revunq()
 #
 genconf()
 {
-	local view file filename zone master_conf rev_conf x
+	local view zone
 	local prefix='^[[:space:]]*$ORIGIN\>.*'
 	local suffix='\.arpa\.\([[:space:]]\|$\)'
 	local ip4arpa="$prefix"'\.in-addr'"$suffix"
@@ -1163,59 +1168,57 @@ genconf()
 		sudo chown "$binduser:$bindgroup" "$view/include"
 
 		# Generate master.conf include for view
-		master_conf="$view/include/master.conf"
-		:| sudo tee "$master_conf"
-		for file in "$nameddir/$view"/master/*; do
+		{ for file in "$nameddir/$view"/master/*; do
 			[ -e "$file" ] || continue
+#?			printf "\t  \033[2m-> %s\033[m\n" \
+#?				"$file" >&2 # Testing -- Devin
 			case "$file" in
 			*.jnl) continue ;;
 			esac
 			zone="${file##*/}"
-			{
-				printf 'zone "%s" in {\n' "$zone"
-				printf '\ttype master;\n'
-				printf '\tfile "%s";\n' "$file"
-				printf '\tnotify yes;\n'
-				printf '};\n'
-			} | sudo tee -a "$master_conf" > /dev/null
-		done
+			printf 'zone "%s" in {\n' "$zone"
+			printf '\ttype master;\n'
+			printf '\tfile "%s";\n' "$file"
+			printf '\tnotify yes;\n'
+			printf '};\n'
+		done; } | sudo tee "$view/include/master.conf" > /dev/null
 
 		# Generate rev.conf include for view
-		rev_conf="$view/include/rev.conf"
-		:| sudo tee "$rev_conf"
-		for file in "$nameddir/$view"/rev/*; do
+		{ for file in "$nameddir/$view"/rev/*; do
 			[ -e "$file" ] || continue
 			filename="${file##*/}"
 			for x in $RMDREVS; do
 				[ "$x" = "$filename" ] || continue
-				printf "\t  \033[31;2m-> %s\033[m\n" "$file"
-				sudo rm -f "$file"
+#?				printf "\t  \033[31;2m-> %s\033[m\n" \
+#?					"$file" >&2 # Testing -- Devin
+				sudo rm -f "$file" >&2
 				break
 			done
 			[ -e "$file" ] || continue
-			printf "\t  \033[2m-> %s\033[m\n" "$file"
+#?			printf "\t  \033[2m-> %s\033[m\n" \
+#?				"$file" >&2 # Testing -- Devin
 			case "$file" in
 			*.jnl) # Journal file
 				msg "WARNING: $file exists" \
-				    "(\`rndc freeze' may be required)"
+				    "(\`rndc freeze' may be required)" >&2
 				continue ;;
 			esac
 			zone="${file##*/}"
-			grep -q "$ip4arpa" "$file" && {
+			if grep -q "$ip4arpa" "$file"; then
 				printf 'zone "%s.in-addr.arpa" in {\n' "$zone"
 				printf '\ttype master;\n'
 				printf '\tfile "%s";\n' "$file"
 				printf '\tnotify yes;\n'
 				printf '};\n'
-			} | sudo tee -a "$rev_conf" > /dev/null
-			grep -q "$ip6arpa" "$file" && {
+			fi
+			if grep -q "$ip6arpa" "$file"; then
 				printf 'zone "%s.ip6.arpa" in {\n' "$zone"
 				printf '\ttype master;\n'
 				printf '\tfile "%s";\n' "$file"
 				printf '\tnotify yes;\n'
 				printf '};\n'
-			} | sudo tee -a "$rev_conf" > /dev/null
-		done
+			fi
+		done; } | sudo tee "$view/include/rev.conf" > /dev/null
 	done
 	cd - > /dev/null
 }
@@ -1907,7 +1910,14 @@ checkin()
 		sudo chown "$binduser:$bindgroup" "$file"
 		sudo chmod 0440 "$file"
 		rcs -l "$file"
-		echo "$USER: $( date )" | ci -u "$file" #? > /dev/null 2>&1
+		if [ "$COMMITMSG" ]; then
+			printf "%s: %s\n\n%s\n" \
+				"$USER" "$( date )" "$COMMITMSG" |
+				ci -u "$file" #? > /dev/null 2>&1
+		else
+			printf "%s: %s\n" "$USER" "$( date )" |
+				ci -u "$file" #? > /dev/null 2>&1
+		fi
 		sudo chown "$binduser:$bindgroup" "$rcsfile"
 		sudo chmod 0660 "$rcsfile"
 	done
@@ -2583,21 +2593,50 @@ if [ "$SYNC" ]; then
 	msg "Files: $UPDZONES"
 else
 	# We need a description of why this is being done
-	( set -e
+	exec 3<&1
+	COMMITMSG=$(
+		set -e
 		tmpfile=$( mktemp -t "$pgm.XXXXXXXX" )
 		awk 'sub(/^\t+/,"")||1' >> "$tmpfile" <<-EOF
 
 
 		# Please enter some text describing your changes
 		#
-		# IMPORTANT! Lines beginning with # are ignored
-		# IMPORTANT! Blank lines are ignored
+		# IMPORTANT! Lines at the bottom beginning with # are ignored
+		# IMPORTANT! At least one non-blank line above is required
 		#
 		# WARNING! Changes will be aborted without a message
 		EOF
 		trap 'rm -f "$tmpfile" > /dev/null 2>&1' EXIT
-		${EDITOR:-vi} "$tmpfile"
-		msg=$( awk '!/^[[:space:]]*(#|$)/' "$tmpfile" )
+		${EDITOR:-vi} "$tmpfile" >&3
+		msg=$( awk '
+			BEGIN {
+				delete buf
+				blank = "^[[:space:]]*(#|$)"
+				comment = "^[[:space:]]*#"
+			}
+			{ buf[NR] = $0 }
+			END {
+				for (n = NR; n > 0; n--)
+					if (buf[n] !~ blank) break
+				stop = (buf[n] ~ blank) ? n - 1 : n
+				skip = 1
+				line = 0
+				for (n = 1; n <= stop; n++) {
+					if (buf[n] ~ blank && skip)
+						continue
+					else if (buf[n] ~ blank) {
+						if (line) continue
+						print ""
+						line = 1
+					}
+					else if (buf[n] !~ comment) {
+						skip = line = 0
+						print buf[n]
+					}
+				}
+			}
+		' "$tmpfile" )
 		cat "$log" > "$tmpfile"
 		if [ ! "$msg" ]; then
 			msg="WARNING! No message entered. Cancelling."
@@ -2610,6 +2649,7 @@ else
 		echo "$msg" > "$log"
 		echo >> "$log"
 		cat "$tmpfile" >> "$log"
+		echo "$msg" # To $COMMITMSG
 	) || exit
 fi
 genmaster
