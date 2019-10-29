@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-29 01:35:10 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-29 01:56:18 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,10 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.5
+# 		- Hide zone history unless in edit mode
+# 		- Add /log command
+# 		- Enable commands in view mode (/log only)
 # 	Oct 2019: Release 4.9.4
 # 		- Improve handling of commit message
 # 		- Add user-provided commit message to checkin()
@@ -275,7 +279,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.4 $'
+VERSION='$Version: 4.9.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1516,11 +1520,11 @@ zonemenu()
 			break
 		fi
 
-		if [ "$EDITMODE" ]; then
+		if [ "$EDITMODE" ]; then # Edit commands
 			case "$zone" in
 			/q|/Q) # Same as Q or q above
 				break ;;
-			/new|/rm)
+			/new|/rm|/log)
 				case "$rest" in
 				*[!0-9a-zA-Z-.]*) # Invalid argument
 					eval ${zone#/}zone ;;
@@ -1541,6 +1545,20 @@ zonemenu()
 				*[!0-9a-zA-Z.-]*) # Invalid arguments
 					mvzone ;;
 				*)	mvzone $from $to
+				esac
+				continue ;;
+			/*)
+				continue ;;
+			esac
+		else # View commands
+			case "$zone" in
+			/q|/Q) # Same as Q or q above
+				break ;;
+			/log)
+				case "$rest" in
+				*[!0-9a-zA-Z-.]*) # Invalid argument
+					eval ${zone#/}zone ;;
+				*)	eval ${zone#/}zone $rest
 				esac
 				continue ;;
 			/*)
@@ -1884,6 +1902,42 @@ mvzone()
 	CHANGES=1
 	msg "   Moved $from zone to $to: $( date )"
 	pause
+}
+
+# logzone [$zone]
+#
+# Handler for the /log zone menu edit command.
+#
+logzone()
+{
+	local file rcsfile
+	local zone
+
+	if [ "$1" ]; then
+		zone="$1"
+	else
+		printf "  Enter the name of the zone to view: "
+		read zone
+	fi
+
+	case "$zone" in
+	"") return ;;
+	..|.|*/*)
+		msg "  Invalid zone \`$zone': $( date )"
+		pause
+		return
+		;;
+	esac
+
+	file="$nsadmindir/$zone"
+	rcsfile="$nsadmindir/RCS/$zone,v"
+	if [ ! -e "$file" ] && [ ! -e "$rcsfile" ]; then
+		msg "Zone $zone does not exist: $( date )"
+		pause
+		return
+	fi
+
+	rlog "$file" 2>&1 | colorize | ${PAGER:-less -R}
 }
 
 ############################################################ ZONE FUNCTIONS
@@ -2245,7 +2299,7 @@ zonelist()
 		sep "# nsadmin: Zone List"
 	fi
 
-	zones=$( for zone in [a-z0-9]* RCS/[a-z0-9]*,v; do
+	zones=$( for zone in [a-z0-9]* ${EDITMODE:+RCS/[a-z0-9]*,v}; do
 		case "$zone" in
 		RCS/*,v) # History file
 			file="${zone#RCS/}"
@@ -2303,7 +2357,19 @@ zonelist()
 	if [ "$EDITMODE" ]; then
 		col=0
 		printf " \033[1mEdit Commands:\033[m\n\n "
-		for cmd in /new /rm /mv; do
+		for cmd in /new /log /mv /rm; do
+			if [ $col -ge 6 ]; then
+				printf "\n "
+				col=0
+			fi
+			printf " %-12s" "$cmd"
+			col=$(( $col + 1 ))
+		done
+		printf "\n\n"
+	else
+		col=0
+		printf  " \033[1mView Commands:\033[m\n\n "
+		for cmd in /log; do
 			if [ $col -ge 6 ]; then
 				printf "\n "
 				col=0
