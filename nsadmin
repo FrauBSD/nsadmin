@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-29 02:03:43 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-29 15:10:52 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.7
+# 		- Add /diff command
+# 		- Centralize definition of view/edit commands
 # 	Oct 2019: Release 4.9.6
 # 		- Whitespace
 # 		- Trim leading blank lines from /log output
@@ -282,7 +285,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.6 $'
+VERSION='$Version: 4.9.7 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -304,6 +307,12 @@ SYNC=		# -s
 SYNCALL=	# -a
 UPDZONES=	# -l file[,...] (also used to track edited zones)
 SLAVES=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
+
+#
+# Commands
+#
+EDITCMDS="/diff /log /mv /new /rm"
+VIEWCMDS="/diff /log"
 
 #
 # OS Glue
@@ -1527,7 +1536,10 @@ zonemenu()
 			case "$zone" in
 			/q|/Q) # Same as Q or q above
 				break ;;
-			/new|/rm|/log)
+			/diff)
+				diffzone $rest
+				continue ;;
+			/log|/new|/rm)
 				case "$rest" in
 				*[!0-9a-zA-Z-.]*) # Invalid argument
 					eval ${zone#/}zone ;;
@@ -1557,6 +1569,9 @@ zonemenu()
 			case "$zone" in
 			/q|/Q) # Same as Q or q above
 				break ;;
+			/diff)
+				diffzone $rest
+				continue ;;
 			/log)
 				case "$rest" in
 				*[!0-9a-zA-Z-.]*) # Invalid argument
@@ -1942,6 +1957,107 @@ logzone()
 
 	rlog "$file" 2>&1 |
 		awk '!/^[[:space:]]*$/,0' | colorize | ${PAGER:-less -R}
+}
+
+# diffzone_usage $fmt [$args ...]
+#
+# Display usage statement for /diff command.
+#
+diffzone_usage()
+{
+	local cmd=/diff
+	local fmt="$1"
+	local optfmt="  \t%-9s %s\n"
+	if [ "$fmt" ]; then
+		shift 1 # fmt
+		printf "%s: $fmt\n" "$cmd" "$@"
+	fi
+	printf "  Usage: %s [-r rev1 [-r rev2]] [zone]\n" "$cmd"
+	printf "  Options:\n"
+	printf "$optfmt" "-r rev" "Revision (zero, one, or two times)."
+	printf "\n"
+	printf "  If two revisions (-rREV1 -rREV2), compare revisions.\n"
+	printf "  If one revision (-rREV), compare working file with it.\n"
+	printf "  If no revisions, compare working file with latest.\n"
+	printf "\n"
+	pause
+}
+
+# diffzone [-rX.Y] [$zone]
+#
+# Handler for the /diff zone menu edit command.
+#
+diffzone()
+{
+	local OPTIND=1 OPTARG flag
+	local rev1= rev2= zone=
+	local file rcsfile diff
+
+	while getopts hr: flag; do
+		case "$flag" in
+		r) # Revision
+			if [ ! "$OPTARG" ]; then
+				diffzone_usage "\`r rev' requires an argument"
+				return
+			fi
+			if [ "$rev2" ]; then
+				diffzone_usage "Too many \`-r rev' options"
+				return
+			elif [ "$rev1" ]; then
+				rev2="$OPTARG"
+			else
+				rev1="$OPTARG"
+			fi
+			;;
+		h) # Help
+			diffzone_usage
+			return ;;
+		*) # Unknown
+			diffzone_usage "$flag: Unknown option"
+			return
+		esac
+	done
+	shift $(( $OPTIND - 1 ))
+
+	if [ "$1" ]; then
+		zone="$1"
+	else
+		printf "  Enter the name of the zone to diff: "
+		read zone
+	fi
+
+	case "$zone" in
+	"") return ;;
+	..|.|*/*)
+		msg "  Invalid zone \`$zone': $( date )"
+		pause
+		return
+		;;
+	esac
+
+	file="$nsadmindir/$zone"
+	if [ ! -e "$file" ]; then
+		rcsfile="$nsadmindir/RCS/$zone,v"
+		if [ ! -e "$rcsfile" ]; then
+			msg "Zone $zone does not exist: $( date )"
+			pause
+			return
+		elif ! [ "$rev1" -a "$rev2" ]; then
+			printf "  Must use \`/diff -rREVA -rREVB $zone'.\n"
+			printf "  See \`/log $zone' for a list of revisions.\n"
+			pause
+			return
+		fi
+	fi
+
+	set -- -q ${rev1:+-r"$rev1"} ${rev2:+-r"$rev2"} -u "$file"
+	diff=$( rcsdiff "$@" )
+	if [ ! "$diff" ]; then
+		printf "  No differences.\n"
+		pause
+		return
+	fi
+	rcsdiff "$@" 2>&1 | colorize | ${PAGER:-less -R}
 }
 
 ############################################################ ZONE FUNCTIONS
@@ -2361,7 +2477,7 @@ zonelist()
 	if [ "$EDITMODE" ]; then
 		col=0
 		printf " \033[1mEdit Commands:\033[m\n\n "
-		for cmd in /new /log /mv /rm; do
+		for cmd in $EDITCMDS; do
 			if [ $col -ge 6 ]; then
 				printf "\n "
 				col=0
@@ -2373,7 +2489,7 @@ zonelist()
 	else
 		col=0
 		printf  " \033[1mView Commands:\033[m\n\n "
-		for cmd in /log; do
+		for cmd in $VIEWCMDS; do
 			if [ $col -ge 6 ]; then
 				printf "\n "
 				col=0
