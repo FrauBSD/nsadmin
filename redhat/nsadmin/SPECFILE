@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9.6
+Version: 4.9.7
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,9 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Oct 29 2019 Devin Teske <dteske@fraubsd.org> 4.9.7-1
+- 6876e75 Add /diff command
+- 6876e75 Centralize definition of view/edit commands
 * Tue Oct 29 2019 Devin Teske <dteske@fraubsd.org> 4.9.6-1
 - 10c0d3e Whitespace
 - 10c0d3e Trim leading blank lines from /log output
