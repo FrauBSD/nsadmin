@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-29 01:56:18 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-29 02:03:43 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.6
+# 		- Whitespace
+# 		- Trim leading blank lines from /log output
 # 	Oct 2019: Release 4.9.5
 # 		- Hide zone history unless in edit mode
 # 		- Add /log command
@@ -279,7 +282,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.5 $'
+VERSION='$Version: 4.9.6 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1153,7 +1156,7 @@ revunq()
 
 	sudo mv .revunq "$file"
 }
- 
+
 # genconf view ...
 #
 # Make BIND include files of generated zones and rev maps for each given view.
@@ -1798,7 +1801,7 @@ rmzone()
 		r="$r${r:+ }$x"
 	done
 	UPDZONES="$r"
-		 
+
 	CHANGES=1
 	msg "   Removed $zone zone: $( date )"
 	sleep 1
@@ -1937,7 +1940,8 @@ logzone()
 		return
 	fi
 
-	rlog "$file" 2>&1 | colorize | ${PAGER:-less -R}
+	rlog "$file" 2>&1 |
+		awk '!/^[[:space:]]*$/,0' | colorize | ${PAGER:-less -R}
 }
 
 ############################################################ ZONE FUNCTIONS
