@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-30 08:29:17 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-30 08:41:47 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 5.0
+# 		- Fix bug on detecting revert of all changes after edit
+# 		- Make backup of previous versions silent
 # 	Oct 2019: Release 4.9.9
 # 		- Show all pending diffs with `/diff' in edit mode
 # 		- Improve pause() and change ENTER to return
@@ -294,7 +297,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.9 $'
+VERSION='$Version: 5.0 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -345,7 +348,7 @@ SEP=$( printf %75s | tr " " - )		# Separator
 SEPDBL=$( printf %20s | tr " " = )	# Double separator
 SUBNETS=				# Subnets changed for rev maps
 SYNCCNT=0				# Number of files sync'd
-UPDATE=					# Stage of master file updates
+UPDATE=0				# Stage of master file updates
 
 ############################################################ FUNCTIONS
 
@@ -1398,7 +1401,7 @@ sigquit()
 
 	cd "$nsadmindir"
 
-	if [ ${UPDATE:=0} -eq 1 ]; then
+	if [ $UPDATE -eq 1 ]; then
 		msg "ERROR: nsadmin killed after changes were" \
 		    "made to master files: rolling back"
 		for file in .bak-*; do
@@ -1408,7 +1411,7 @@ sigquit()
 		done
 		checkin
 		subj="nsadmin: ERROR: $( date ): $USER"
-	elif [ ${UPDATE:=0} -eq 2 ]; then
+	elif [ $UPDATE -eq 2 ]; then
 		msg "ERROR: nsadmin killed after files were" \
 		    "updated in the NAMEDB directory: rolling back"
 		for file in .bak-*; do
@@ -2210,14 +2213,16 @@ pushzones()
 		for file in $RMDZONES; do
 			file="$view/master/${file##*/}"
 			[ -e "$file" ] || continue
-			printf "\t  \033[31;2m-> %s\033[m\n" "$file"
+#?			printf "\t  \033[31;2m-> %s\033[m\n" "$file"
+#?				# Testing -- Devin
 			sudo rm -f "$file"
 		done
 		for file in $( find "$view" -type f ! -name ".bak-*" ); do
 			res=$( echo "$file" |
 			    sed -e 's/\(.*\/\)\(.*\)/\1.bak-\2/' )
 			cmp -s "$file" "$res" 2> /dev/null && continue
-			printf "\t  \033[2m-> %s\033[m\n" "$file"
+#?			printf "\t  \033[2m-> %s\033[m\n" "$file"
+#?				# Testing -- Devin
 			sudo cp "$file" "$res"
 		done
 		echo
@@ -2285,7 +2290,10 @@ verify()
 		UPDZONES="${new# }"
 
 		# Reset change indicator if this edit reverted all changes
-		[ "$UPDZONES$RMDZONES$NEWZONES$MVJNL" ] || CHANGES=
+		if [ ! "$UPDZONES$RMDZONES$NEWZONES$MVJNL" ]; then
+			CHANGES=
+			UPDATE=0
+		fi
 
 		return
 	fi
