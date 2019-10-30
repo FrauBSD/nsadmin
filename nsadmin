@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-29 21:07:35 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-30 08:29:17 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,12 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.9
+# 		- Show all pending diffs with `/diff' in edit mode
+# 		- Improve pause() and change ENTER to return
+# 		- Use pause() in place of peppered recipes to wait
+# 		- Make a read that is ignored more visibly-so
+# 		- Revert changed state if edit undoes a change
 # 	Oct 2019: Release 4.9.8
 # 		- Do not use sudo in sigquit()
 # 		- Revert some previous changes around locking
@@ -288,7 +294,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.8 $'
+VERSION='$Version: 4.9.9 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -904,8 +910,8 @@ clear()
 #
 genmaster()
 {
-	local ans
 	local file
+	local ignored
 	local subnet
 
 	#
@@ -947,7 +953,7 @@ genmaster()
 
 		printf "\n\033[1mPress return when ready to re-edit.\033[m"
 		stty -echo
-		read ans # ignored
+		read ignored
 		stty echo
 
 		# Clean up the previous attempt
@@ -1609,14 +1615,16 @@ zonemenu()
 
 # pause
 #
-# Wait for user to press ENTER to continue.
+# Wait for user to press return to continue.
 #
 pause()
 {
 	local ignored
 
-	printf "\n \033[1m< Press ENTER to continue >\033[m "
+	printf "\n \033[1m< Press return to continue >\033[m "
+	stty -echo
 	read ignored
+	stty echo
 	echo
 }
 
@@ -2012,6 +2020,20 @@ diffzone()
 	done
 	shift $(( $OPTIND - 1 ))
 
+	if [ "$EDITMODE" -a $# -eq 0 ] && ! [ "$rev1" -o "$rev2" ]; then
+		# Executed without arguments in edit mode
+		diff=$( for zone in $UPDZONES; do
+			rcsdiff -q -u "$nsadmindir/$zone" 2>&1
+		done )
+		if [ ! "$diff" ]; then
+			printf "  No differences.\n"
+			pause
+			return
+		fi
+		echo "$diff" | colorize | ${PAGER:-less -R}
+		return
+	fi
+
 	if [ "$1" ]; then
 		zone="$1"
 	else
@@ -2246,14 +2268,25 @@ verify()
 	local diff
 	local file="$1"
 	local res
+	local new zone
 
 	if rcsdiff -q "$file" > /dev/null 2>&1; then
 		ci -u "$file" > /dev/null 2>&1
 		msg "No changes made to $file."
-		stty -echo
-		echo " Press return to continue."
-		read ans # Ignored
-		stty echo
+		pause
+
+		# Remove zone from list of those that have been updated
+		new=
+		for zone in $UPDZONES; do
+			[ "$zone" = "$file" -o \
+			  "$zone" = "${file#"$nsadmindir/"}" ] && continue
+			new="$new $zone"
+		done
+		UPDZONES="${new# }"
+
+		# Reset change indicator if this edit reverted all changes
+		[ "$UPDZONES$RMDZONES$NEWZONES$MVJNL" ] || CHANGES=
+
 		return
 	fi
 
@@ -2275,10 +2308,7 @@ verify()
 
 	echo
 	echo
-	stty -echo
-	echo " Press return to continue."
-	read ans # Ignored
-	stty echo
+	pause
 
 	editmaster "$file"
 }
