@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 4.9.9
+Version: 5.0
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,9 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Wed Oct 30 2019 Devin Teske <dteske@fraubsd.org> 5.0-1
+- 4196f27 Fix bug on detecting revert of all changes after edit
+- 4196f27 Make backup of previous versions silent
 * Wed Oct 30 2019 Devin Teske <dteske@fraubsd.org> 4.9.9-1
 - 2cb8281 Show all pending diffs with `/diff' in edit mode
 - 2cb8281 Improve pause() and change ENTER to return
