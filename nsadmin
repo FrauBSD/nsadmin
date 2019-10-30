@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-29 15:10:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-29 21:07:35 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -58,6 +58,9 @@
 # 	  edit the files.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 4.9.8
+# 		- Do not use sudo in sigquit()
+# 		- Revert some previous changes around locking
 # 	Oct 2019: Release 4.9.7
 # 		- Add /diff command
 # 		- Centralize definition of view/edit commands
@@ -285,7 +288,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 4.9.7 $'
+VERSION='$Version: 4.9.8 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -326,7 +329,6 @@ COMMITMSG=				# User-provided commit message
 CHANGES=				# Have changes been made?
 FAILFILE=				# File that failed zonetest()
 FAILTYPE=				# Type of file that failed
-LOCKED=					# Lock obtained by getlock()
 MVJNL=					# Move journal for commit
 MVJNLREV=				# Reverse move journal for interrupt
 NEWZONES=				# Newly created zones
@@ -336,7 +338,6 @@ ROOTFAIL=				# Exited due to running as root
 SEP=$( printf %75s | tr " " - )		# Separator
 SEPDBL=$( printf %20s | tr " " = )	# Double separator
 SUBNETS=				# Subnets changed for rev maps
-SUDOFAIL=				# No sudo in sigquit() if failed
 SYNCCNT=0				# Number of files sync'd
 UPDATE=					# Stage of master file updates
 
@@ -843,7 +844,6 @@ getlock()
 	set -C
 	echo $$ > "$lock" || fatal "could not create '$lock'" # NOTREACHED
 	[ "$clobber" ] && set +C
-	LOCKED=1
 }
 
 # predit
@@ -858,11 +858,8 @@ predit()
 
 	msg "$USER starting edits: $( date )"
 
-	if ! sudo rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
-	then
-		SUDOFAIL=rm
+	sudo rm -rf "$log" "$tmp" .bak-* .revunq .updzones .view* ||
 		exit $FAILURE
-	fi
 
 	trap "sigquit; exit" SIGHUP SIGINT SIGQUIT SIGTERM
 
@@ -1475,16 +1472,12 @@ sigquit()
 			-s "$subj" "$admin"
 	fi
 
-	if [ ! "$SUDOFAIL" ]; then
-		sudo rm -rf "$lock" "$log" "$tmp" \
-			.bak-* .revunq .updzones .view*
+	# We previously deleted these with sudo in predit()
+	# NB: These should all be removable without sudo now
+	rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
 
-		# XXX Save the older version in case of emergency.
-		#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
-	elif [ "$LOCKED" ]; then
-		rm -f "$lock" "$log"
-		LOCKED=
-	fi
+	# XXX Save the older version in case of emergency
+	#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
 
 	#
 	# Make sure files are not left in a write state as it will
@@ -2656,22 +2649,13 @@ if [ ! -e "$nsadmindir" ]; then
 	*/*)
 		parentdir="${nsadmindir%/*}"
 		if [ ! -e "$parentdir" ]; then
-			if ! sudo mkdir -p -v "$parentdir"; then
-				SUDOFAIL=mkdir
-				exit $FAILURE
-			fi
+			sudo mkdir -p -v "$parentdir" || exit $FAILURE
 		fi
 		unset parentdir
 		;;
 	esac
-	if ! sudo mkdir -p -v -m 1770 "$nsadmindir"; then
-		SUDOFAIL=mkdir
-		exit $FAILURE
-	fi
-	if ! sudo chown "$binduser:$bindgroup" "$nsadmindir"; then
-		SUDOFAIL=mkdir
-		exit $FAILURE
-	fi
+	sudo mkdir -p -v -m 1770 "$nsadmindir" || exit $FAILURE
+	sudo chown "$binduser:$bindgroup" "$nsadmindir" || exit $FAILURE
 fi
 cd "$nsadmindir" || exit
 
@@ -2730,10 +2714,7 @@ fi
 #
 if [ ! -e "$nsadmindir/RCS" ]; then
 	mkdir -p -m 0770 "$nsadmindir/RCS"
-	if ! sudo chown "$bindgroup:$binduser" "$nsadmindir/RCS"; then
-		SUDOFAIL=chown
-		exit $FAILURE
-	fi
+	sudo chown "$bindgroup:$binduser" "$nsadmindir/RCS" || exit $FAILURE
 fi
 
 # Make sure only one person is building zone files at a time
