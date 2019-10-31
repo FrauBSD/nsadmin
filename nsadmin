@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-31 09:10:49 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-31 11:50:37 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,9 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 5.1.1
+# 		- Prevent management of more invalid domain names
+# 		- Comments
 # 	Oct 2019: Release 5.1
 # 		- Rename AXFR software and use modern terminology
 # 		- Fix bug with some shells that fail on $( case ... )
@@ -302,7 +305,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.1 $'
+VERSION='$Version: 5.1.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1548,7 +1551,7 @@ zonemenu()
 				continue ;;
 			/log|/new|/rm)
 				case "$rest" in
-				*[!0-9a-zA-Z-.]*) # Invalid argument
+				*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-]) # Invalid
 					eval ${zone#/}zone ;;
 				*)	eval ${zone#/}zone $rest
 				esac
@@ -1563,11 +1566,17 @@ zonemenu()
 					from="$to"
 					to=
 				fi
-				case "$from$to" in
-				*[!0-9a-zA-Z.-]*) # Invalid arguments
-					mvzone ;;
-				*)	mvzone $from $to
+				case "$from" in
+				*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-]) # Invalid
+					mvzone
+					continue ;;
 				esac
+				case "$to" in
+				*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-]) # Invalid
+					mvzone $from
+					continue ;;
+				esac
+				mvzone $from $to
 				continue ;;
 			/*)
 				continue ;;
@@ -1581,7 +1590,7 @@ zonemenu()
 				continue ;;
 			/log)
 				case "$rest" in
-				*[!0-9a-zA-Z-.]*) # Invalid argument
+				*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-]) # Invalid
 					eval ${zone#/}zone ;;
 				*)	eval ${zone#/}zone $rest
 				esac
@@ -1656,7 +1665,7 @@ newzone()
 
 	case "$zone" in
 	"") return ;;
-	..|.|*/*)
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		msg "  Invalid zone \`$zone': $( date )"
 		pause
 		return
@@ -1779,7 +1788,7 @@ rmzone()
 
 	case "$zone" in
 	"") return ;;
-	..|.|*/*)
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		msg "  Invalid zone \`$zone': $( date )"
 		pause
 		return
@@ -1849,7 +1858,7 @@ mvzone()
 
 	case "$from" in
 	"") return ;;
-	..|.|*/*)
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		msg " Invalid zone \`$from': $( date )"
 		pause
 		return
@@ -1871,7 +1880,7 @@ mvzone()
 
 	case "$to" in
 	"") return ;;
-	..|.|*/*)
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		msg " Invalid zone \`$to': $( date )"
 		pause
 		return
@@ -1933,7 +1942,7 @@ mvzone()
 
 # logzone [$zone]
 #
-# Handler for the /log zone menu edit command.
+# Handler for the /log zone menu edit/view command.
 #
 logzone()
 {
@@ -1949,7 +1958,7 @@ logzone()
 
 	case "$zone" in
 	"") return ;;
-	..|.|*/*)
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		msg "  Invalid zone \`$zone': $( date )"
 		pause
 		return
@@ -1994,7 +2003,7 @@ diffzone_usage()
 
 # diffzone [-rX.Y] [$zone]
 #
-# Handler for the /diff zone menu edit command.
+# Handler for the /diff zone menu edit/view command.
 #
 diffzone()
 {
@@ -2051,7 +2060,7 @@ diffzone()
 
 	case "$zone" in
 	"") return ;;
-	..|.|*/*)
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		msg "  Invalid zone \`$zone': $( date )"
 		pause
 		return
@@ -2464,7 +2473,7 @@ zonelist()
 			[ -e "$file" ] && continue # See below
 			echo "$file!"
 			;;
-		*[!a-zA-Z0-9.-]*) # Invalid name
+		*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-]) # Invalid
 			continue
 			;;
 		*) # Zone master file
