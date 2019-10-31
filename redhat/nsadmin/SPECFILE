@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 5.1
+Version: 5.1.1
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,9 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Oct 31 2019 Devin Teske <dteske@fraubsd.org> 5.1.1-1
+- 9b0c49a Prevent management of more invalid domain names
+- 9b0c49a Comments
 * Thu Oct 31 2019 Devin Teske <dteske@fraubsd.org> 5.1-1
 - Rename AXFR software and use modern terminology
 - Fix bug with some shells that fail on $( case ... )
