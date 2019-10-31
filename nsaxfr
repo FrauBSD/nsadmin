@@ -28,22 +28,24 @@
 ############################################################ IDENT(1)
 #
 # $Title: Distributed bind9 client for applying nsadmin changes $
-# $Id: nsslave,v 1.3 2012/05/10 01:15:04 root Exp root $
+# $Id: nsaxfr,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsslave 2019-10-13 15:50:35 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsaxfr 2019-10-13 15:50:35 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
-# nsslave -- Update Bind's installation on the slave NS server. See
+# nsaxfr -- Update Bind's installation on secondary NS server. See
 # 	nsadmin on the master server for details.
 #
 # --------------------------------------------------------------------
 # Notes:
-# 	- Requires /etc/nsslave.conf to operate
+# 	- Requires /etc/nsaxfr.conf to operate
 # 	- Requires user `cm' and appropriate `.ssh/authorized_keys2' file
-# 	- User `cm' needs `sudo /usr/local/bin/nsslave' without password
+# 	- User `cm' needs `sudo /usr/local/bin/nsaxfr' without password
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 2.3
+# 		- Rename AXFR software and use modern terminology
 # 	Oct 2019: Release 2.2.2
 # 		- Look for config in proper directory based on OS
 # 	Oct 2019: Release 2.2.1
@@ -59,15 +61,15 @@
 # 	Jun 2017: Release 1.1
 # 		- Ported to FreeBSD.
 # 	Jul 2006: Release 1.0
-# 		- Update files locally on the slave.
+# 		- Update files locally on the secondary.
 #
 ############################################################ INCLUDES
 
-NSSLAVE_CONF=nsslave.conf # See OS Glue
+NSAXFR_CONF=nsaxfr.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 2.2.2 $'
+VERSION='$Version: 2.3 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -150,14 +152,14 @@ shift $(( $OPTIND - 1 ))
 #
 have systemctl && SYSTEMD=1
 case "$UNAME_s" in
-*BSD*) NSSLAVE_CONF="/usr/local/etc/$NSSLAVE_CONF" ;;
-*) NSSLAVE_CONF="/etc/$NSSLAVE_CONF"
+*BSD*) NSAXFR_CONF="/usr/local/etc/$NSAXFR_CONF" ;;
+*) NSAXFR_CONF="/etc/$NSAXFR_CONF"
 esac
 
 #
 # Load config
 #
-. "$NSSLAVE_CONF" || exit
+. "$NSAXFR_CONF" || exit
 
 #
 # Setup

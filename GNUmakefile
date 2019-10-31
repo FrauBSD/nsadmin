@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/GNUmakefile 2019-10-25 19:44:10 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/GNUmakefile 2019-10-31 09:10:49 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -31,8 +31,8 @@ NSADMIN_CONF=	nsadmin.conf
 NSNEXT=		nsnext
 NSNEXT_CONF=	nsnext.conf
 
-NSSLAVE=	nsslave
-NSSLAVE_CONF=	nsslave.conf
+NSAXFR=		nsaxfr
+NSAXFR_CONF=	nsaxfr.conf
 
 ############################################################ TARGETS
 
@@ -40,10 +40,10 @@ all install uninstall:
 	@printf "Options:\n"
 	@printf "\tmake install-admin\tInstall nsadmin\n"
 	@printf "\tmake install-next\tInstall nsnext\n"
-	@printf "\tmake install-slave\tInstall nsslave\n"
+	@printf "\tmake install-axfr\tInstall nsaxfr\n"
 	@printf "\tmake uninstall-admin\tUninstall nsadmin\n"
 	@printf "\tmake uninstall-next\tUninstall nsnext\n"
-	@printf "\tmake uninstall-slave\tUninstall nsslave\n"
+	@printf "\tmake uninstall-axfr\tUninstall nsaxfr\n"
 
 install-admin:
 	$(MKDIR_P) $(BINDIR)
@@ -59,12 +59,12 @@ install-next:
 	$(CP_F) $(NSNEXT_CONF) $(CONFDIR)/$(NSNEXT_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSNEXT_CONF).sample $(CONFDIR)/$(NSNEXT_CONF)
 
-install-slave:
+install-axfr:
 	$(MKDIR_P) $(BINDIR)
-	$(CP_F) $(NSSLAVE) $(BINDIR)/
+	$(CP_F) $(NSAXFR) $(BINDIR)/
 	$(MKDIR_P) $(CONFDIR)
-	$(CP_F) $(NSSLAVE_CONF) $(CONFDIR)/$(NSSLAVE_CONF).sample
-	$(CP_N) $(CONFDIR)/$(NSSLAVE_CONF).sample $(CONFDIR)/$(NSSLAVE_CONF)
+	$(CP_F) $(NSAXFR_CONF) $(CONFDIR)/$(NSAXFR_CONF).sample
+	$(CP_N) $(CONFDIR)/$(NSAXFR_CONF).sample $(CONFDIR)/$(NSAXFR_CONF)
 
 uninstall-admin:
 	$(RM_F) $(BINDIR)/$(NSADMIN)
@@ -78,11 +78,11 @@ uninstall-next:
 		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
 	$(RM_F) $(CONFDIR)/$(NSNEXT_CONF).sample
 
-uninstall-slave:
-	$(RM_F) $(BINDIR)/$(NSSLAVE)
-	CONF=$(CONFDIR)/$(NSSLAVE_CONF); \
+uninstall-axfr:
+	$(RM_F) $(BINDIR)/$(NSAXFR)
+	CONF=$(CONFDIR)/$(NSAXFR_CONF); \
 		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
-	$(RM_F) $(CONFDIR)/$(NSSLAVE_CONF).sample
+	$(RM_F) $(CONFDIR)/$(NSAXFR_CONF).sample
 
 ################################################################################
 # END

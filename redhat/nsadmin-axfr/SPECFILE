@@ -3,13 +3,13 @@
 # vi: set filetype=spec ::
 ############################################################ HEADER
 
-Name: nsadmin-slave
+Name: nsadmin-axfr
 Group: Applications/FrauBSD
 # For a list of groups, see pkgcenter/redhat/Mk/GROUPS
 
-Summary: nsslave package for nsadmin
+Summary: nsaxfr package for nsadmin
 License: BSD
-Version: 2.2.2
+Version: 2.3
 Release: 1
 Buildarch: noarch
 
@@ -27,7 +27,7 @@ Requires: sudo
 ############################################################ DESCRIPTION
 
 %Description
-DNS slave software for nsadmin.
+DNS AXFR software for nsadmin.
 
 WWW: https://www.fraubsd.org/nsadmin
 
@@ -59,8 +59,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 %files
 %defattr(-,root,root)
-/etc/nsslave.conf.sample
-/usr/local/bin/nsslave
+/etc/nsaxfr.conf.sample
+/usr/local/bin/nsaxfr
 
 ############################################################ FOOTER
 
@@ -68,7 +68,7 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %post
-[ -e /etc/nsslave.conf ] || cp /etc/nsslave.conf.sample /etc/nsslave.conf
+[ -e /etc/nsaxfr.conf ] || cp /etc/nsaxfr.conf.sample /etc/nsaxfr.conf
 
 %preun
 
@@ -77,6 +77,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Oct 31 2019 Devin Teske <dteske@fraubsd.org> 2.3-1
+- Rename AXFR software and use modern terminology
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 2.2.2-1
 - 320daaf Look for config in proper directory based on OS
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 2.2.1-1

@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 5.0
+Version: 5.1
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,10 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Oct 31 2019 Devin Teske <dteske@fraubsd.org> 5.1-1
+- Rename AXFR software and use modern terminology
+- Fix bug with some shells that fail on $( case ... )
+- Update comments for accuracy
 * Wed Oct 30 2019 Devin Teske <dteske@fraubsd.org> 5.0-1
 - 4196f27 Fix bug on detecting revert of all changes after edit
 - 4196f27 Make backup of previous versions silent
@@ -134,7 +138,7 @@ WWW: https://www.fraubsd.org/nsadmin
 * Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 4.9-1
 - 5dd0f65 Move vim filetype hint to top of new zone template
 - 5dd0f65 Move command-line option global definitions
-- 5dd0f65 Fix `-n slave[,...]' config override
+- 5dd0f65 Fix `-n host[,...]' config override
 - 5dd0f65 Show diff when importing changes detected during sync
 * Fri Oct 25 2019 Devin Teske <dteske@fraubsd.org> 4.8.9-1
 - 4de451c If running as root, require new `-u user' option
@@ -195,7 +199,7 @@ WWW: https://www.fraubsd.org/nsadmin
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.7-1
 - 940f55b Make mail optional with disabled defaults
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.6-1
-- 60ec033 Make default slaves empty in config
+- 60ec033 Make default $transfer empty in config
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.5-1
 - 2ac87c6 Use BSD compatible ANSI escape sequences for printf
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 4.5.4-1

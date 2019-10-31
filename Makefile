@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin on non-GNU systems $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Makefile 2019-10-24 07:18:08 +0000 freebsdfrau $
+# $FrauBSD: nsadmin/Makefile 2019-10-31 09:10:49 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -11,11 +11,11 @@ TARGETS=	all \
 		install \
 		install-admin \
 		install-next \
-		install-slave \
+		install-axfr \
 		uninstall \
 		uninstall-admin \
 		uninstall-next \
-		uninstall-slave
+		uninstall-axfr
 
 ############################################################ TARGETS
 

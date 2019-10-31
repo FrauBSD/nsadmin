@@ -4,14 +4,14 @@
 {
 	//////////////////////////////////////////////////// HEADER
 
-	"name":"nsadmin-slave",
-	"origin":"fraubsd/nsadmin-slave",
+	"name":"nsadmin-axfr",
+	"origin":"fraubsd/nsadmin-axfr",
 	"categories":["fraubsd"],
 
-	"comment":"nsslave software for nsadmin",
+	"comment":"nsaxfr software for nsadmin",
 	"licenselogic":"single",
 	"licenses":["BSD"],
-	"version":"2.2.2",
+	"version":"2.3",
 
 	"maintainer":"dteske@freebsd.org",
 	"www":"https://www.fraubsd.org/nsadmin",
@@ -21,7 +21,7 @@
 
 	//////////////////////////////////////////////////// DESCRIPTION
 
-	"desc":"DNS slave software for nsadmin.
+	"desc":"DNS AXFR software for nsadmin.
 
 WWW: https://www.fraubsd.org/nsadmin",
 
@@ -35,8 +35,8 @@ WWW: https://www.fraubsd.org/nsadmin",
 	//////////////////////////////////////////////////// FILES
 
 	"files":[
-		"/usr/local/bin/nsslave",
-		"/usr/local/etc/nsslave.conf.sample",
+		"/usr/local/bin/nsaxfr",
+		"/usr/local/etc/nsaxfr.conf.sample",
 	],
 
 	//////////////////////////////////////////////////// DIRECTORIES
@@ -52,11 +52,11 @@ WWW: https://www.fraubsd.org/nsadmin",
 
 	"scripts":{
 		"post-install":"
-			conf=/usr/local/etc/nsslave.conf
+			conf=/usr/local/etc/nsaxfr.conf
 			[ -e $conf ] || cp $conf.sample $conf
 		",
 		"pre-deinstall":"
-			conf=/usr/local/etc/nsslave.conf
+			conf=/usr/local/etc/nsaxfr.conf
 			cmp -s $conf.sample $conf && rm -f $conf
 		",
 	}
@@ -67,6 +67,6 @@ WWW: https://www.fraubsd.org/nsadmin",
 ////////////////////////////////////////////////////////////////////////////////
 //
 // $Copyright: 2016-2018 Devin Teske. All rights reserved. $
-// $FrauBSD: nsadmin/freebsd/nsslave/MANIFEST 2019-10-13 15:52:17 -0700 freebsdfrau $
+// $FrauBSD: nsadmin/freebsd/nsaxfr/MANIFEST 2019-10-13 15:52:17 -0700 freebsdfrau $
 //
 ////////////////////////////////////////////////////////////////////////////////

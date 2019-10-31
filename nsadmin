@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-30 08:41:47 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-10-31 09:10:49 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -42,22 +42,27 @@
 # --------------------------------------------------------------------
 # Notes:
 # 	- Requires bind server and nsadmin.conf on the master.
-# 	- Requires nsslave and nsslave-var.inc on the slave Bind
-# 	  servers to operate.
-# 	- User 'cm' and the authorized_keys2 file for that user must
-# 	  be installed on all slave Bind servers. The 'cm' user account
-# 	  and ID file must be on the server with this script.
-# 	- User 'cm' must be able to remotely execute via SSH the
-# 	  following command:
-# 		sudo /usr/local/bin/nsslave
-# 	  Without password on the slave Bind servers.
 # 	- Users must be placed in the DNSOPS group in sudoers as a
 # 	  result of the commands that require root access.
 # 	  Commands used via sudo: awk chmod chown cp find mv rm service su
 # 	- Users must also belong to the "bind" group in /etc/group to
 # 	  edit the files.
+#
+# Requirements to use AXFR transfer method ($transfer in nsadmin.conf):
+# 	- nsaxfr on the secondary Bind servers.
+# 	- User 'cm' and the authorized_keys2 file for that user must be
+# 	  installed on all secondary Bind servers. The 'cm' user account
+# 	  and ID file must be on the server with this script.
+# 	- User 'cm' must be able to remotely execute via SSH the
+# 	  following command:
+# 		sudo /usr/local/bin/nsaxfr
+# 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Oct 2019: Release 5.1
+# 		- Rename AXFR software and use modern terminology
+# 		- Fix bug with some shells that fail on $( case ... )
+# 		- Update comments for accuracy
 # 	Oct 2019: Release 5.0
 # 		- Fix bug on detecting revert of all changes after edit
 # 		- Make backup of previous versions silent
@@ -116,7 +121,7 @@
 # 	Oct 2019: Release 4.9
 # 		- Move vim filetype hint to top of new zone template
 # 		- Move command-line option global definitions
-# 		- Fix `-n slave[,...]' config override
+# 		- Fix `-n host[,...]' config override
 # 		- Show diff when importing changes detected during sync
 # 	Oct 2019: Release 4.8.9
 # 		- If running as root, require new `-u user' option
@@ -182,7 +187,7 @@
 # 	Oct 2019: Release 4.5.7
 # 		- Make mail optional with disabled defaults
 # 	Oct 2019: Release 4.5.6
-# 		- Make default slaves empty in config
+# 		- Make default $transfer empty in config
 # 	Oct 2019: Release 4.5.5
 # 		- Use BSD compatible ANSI escape sequences for printf
 # 	Oct 2019: Release 4.5.4
@@ -248,7 +253,7 @@
 # 		- Add support for `IN' protocol family in master zones
 # 		- Fix `-l' to work with `-s'
 # 		- Prevent Outlook from eating blank lines in diffs
-# 		- Merge nsslave-centos7 into nsslave
+# 		- Merge nsaxfr-centos7 into nsaxfr
 # 		- Add support for vimcat
 # 		- Add limited ANSI coloring to console output
 # 		- Add support for `less -F' when viewing diffs
@@ -273,7 +278,7 @@
 # 		- Ask the user for a message to describe changes.
 # 		- Only allow one instance of nsadmin at a time.
 # 	Jun 2017: Release 2.3
-# 		- Add `-n slaves' syntax for selecting a subset of slaves.
+# 		- Add `-n hosts' syntax for selecting a subset of secondaries.
 # 		- Ported to FreeBSD.
 # 	Mar 2010: Release 2.2
 # 		- Fixed comments.
@@ -297,7 +302,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.0 $'
+VERSION='$Version: 5.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -318,7 +323,7 @@ EDITMODE=	# -e
 SYNC=		# -s
 SYNCALL=	# -a
 UPDZONES=	# -l file[,...] (also used to track edited zones)
-SLAVES=		# -n slave[,...] (taken from $NSADMIN_CONF if unused or NULL)
+TRANSFER=	# -n host[,...] (taken from $NSADMIN_CONF if unused or NULL)
 
 #
 # Commands
@@ -367,7 +372,7 @@ usage()
 	echo "    Edit Mode:"
 	echo "	Used to edit the master $pgm files:"
 	echo
-	echo "		$pgm [-n slaves] -e"
+	echo "		$pgm [-n hosts] -e"
 	echo
 	echo "    Review Mode: (Default)"
 	echo "	Used to view the master $pgm files:"
@@ -379,11 +384,11 @@ usage()
 	echo "	the master $pgm files. This does not allow"
 	echo "	editing of the master files:"
 	echo
-	echo "		$pgm -s [-ah?] [-n slaves] -l <file>[,<file>, ..."
+	echo "		$pgm -s [-ah?] [-n hosts] -l <file>[,<file>, ..."
 	echo
 	echo "		-a			Sync all master files."
 	echo "		-l <file>[,<file>]	Sync list of files."
-	echo "		-n <slave>[,<slave>]	Override list of slaves."
+	echo "		-n <host>[,<host>]	Override transfer hosts."
 	echo
 
 	exit $FAILURE
@@ -942,7 +947,7 @@ genmaster()
 
 	#
 	# Loop through the zone file generation until each error is
-	# fixed. Slave systems will not sync bad zone files nor will
+	# fixed. Secondary systems will not sync bad zone files nor will
 	# the master load them.
 	#
 	while :; do
@@ -2191,7 +2196,7 @@ pushzones()
 	local cmd
 	local file
 	local res
-	local slave
+	local host
 	local view
 
 #?	clear # Testing -- Parker
@@ -2245,18 +2250,18 @@ pushzones()
 	cd - > /dev/null
 #?	sleep 2 # Testing -- Parker
 
-	for slave in $SLAVES; do
+	for host in $TRANSFER; do
 #?		clear # Testing -- Parker
 		sep "# nsadmin: Zone Push"
-		msg " Executing remove push to $slave: $( date )"
+		msg " Executing remove push to $host: $( date )"
 
-		msg "	Copying zone tarball to $slave: $( date )"
-		cmd="scp $scpopts $tmp/zone.tgz $user@$slave:tmp"
+		msg "	Copying zone tarball to $host: $( date )"
+		cmd="scp $scpopts $tmp/zone.tgz $user@$host:tmp"
 		sudo su - $user -c "$cmd"
 
-		msg "	Executing push on $slave: $( date )"
-		cmd="ssh $sshopts $slave"
-		cmd="$cmd 'sudo /usr/local/bin/nsslave'"
+		msg "	Executing push on $host: $( date )"
+		cmd="ssh $sshopts $host"
+		cmd="$cmd 'sudo /usr/local/bin/nsaxfr'"
 		sudo su - $user -c "$cmd"
 
 #?		sleep 2 # Testing -- Parker
@@ -2450,7 +2455,8 @@ zonelist()
 		sep "# nsadmin: Zone List"
 	fi
 
-	zones=$( for zone in [a-z0-9]* ${EDITMODE:+RCS/[a-z0-9]*,v}; do
+	# NB: Some shells do not like case inside $( ... ), use `...`
+	zones=`for zone in [a-z0-9]* ${EDITMODE:+RCS/[a-z0-9]*,v}; do
 		case "$zone" in
 		RCS/*,v) # History file
 			file="${zone#RCS/}"
@@ -2464,7 +2470,7 @@ zonelist()
 		*) # Zone master file
 			echo "$zone"
 		esac
-	done | sort )
+	done | sort`
 
 	for zone in $zones; do
 		case "$zone" in
@@ -2624,7 +2630,7 @@ while getopts "aehl:n:su:v?" flag; do
 	a) SYNCALL=1 ;;
 	e) EDITMODE=1 ;;
 	l) UPDZONES=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
-	n) SLAVES=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
+	n) TRANSFER=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
 	s) SYNC=1 ;;
 	u) USER="$OPTARG" ;;
 	v) VERSION="${VERSION#*: }"
@@ -2646,9 +2652,8 @@ esac
 #
 # Load config
 #
-__slaves="$SLAVES"
 . "$NSADMIN_CONF" || exit
-[ "$__slaves" ] && SLAVES="$__slaves"
+: "${TRANSFER:=$transfer}"
 
 # Make sure log exists
 [ "$log" ] ||
