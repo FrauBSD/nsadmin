@@ -11,7 +11,7 @@
 	"comment":"nsadmin",
 	"licenselogic":"single",
 	"licenses":["BSD"],
-	"version":"5.1",
+	"version":"5.1.1",
 
 	"maintainer":"dteske@freebsd.org",
 	"www":"https://www.fraubsd.org/nsadmin",
@@ -68,6 +68,6 @@ WWW: https://www.fraubsd.org/nsadmin",
 ////////////////////////////////////////////////////////////////////////////////
 //
 // $Copyright: 2016-2018 Devin Teske. All rights reserved. $
-// $FrauBSD: nsadmin/freebsd/nsadmin/MANIFEST 2019-10-31 09:10:49 -0700 freebsdfrau $
+// $FrauBSD: nsadmin/freebsd/nsadmin/MANIFEST 2019-10-31 11:51:45 -0700 freebsdfrau $
 //
 ////////////////////////////////////////////////////////////////////////////////
