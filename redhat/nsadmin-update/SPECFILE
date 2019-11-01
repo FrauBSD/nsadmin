@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsupd package for nsadmin
 License: BSD
-Version: 0.0.1
+Version: 0.0.2
 Release: 1
 Buildarch: noarch
 
@@ -74,5 +74,7 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Nov  1 2019 Devin Teske <dteske@fraubsd.org> 0.0.2-1
+- cf86b89 Align command-line options with those of nsupdate
 * Fri Nov  1 2019 Devin Teske <dteske@fraubsd.org> 0.0.1-1
 - Package created.
