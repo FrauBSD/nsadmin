@@ -1,0 +1,50 @@
+// -*- tab-width: 4 -*-        ;; Emacs
+// vi: set noexpandtab         :: Vi/ViM
+// vi: set filetype=javascript ::
+{
+	//////////////////////////////////////////////////// HEADER
+
+	"name":"nsadmin-update",
+	"origin":"fraubsd/nsadmin-update",
+	"categories":["fraubsd"],
+
+	"comment":"nsaxfr software for nsadmin",
+	"licenselogic":"single",
+	"licenses":["BSD"],
+	"version":"0.0.1",
+
+	"maintainer":"dteske@freebsd.org",
+	"www":"https://www.fraubsd.org/nsadmin",
+
+	"arch":"freebsd",
+	"prefix":"/usr/local",
+
+	//////////////////////////////////////////////////// DESCRIPTION
+
+	"desc":"DNS Update software for nsadmin.
+
+WWW: https://www.fraubsd.org/nsadmin",
+
+	//////////////////////////////////////////////////// FILES
+
+	"files":[
+		"/usr/local/bin/nsupd",
+	],
+
+	//////////////////////////////////////////////////// DIRECTORIES
+
+	"directories":{
+		"/usr":"n",
+		"/usr/local":"n",
+		"/usr/local/bin":"n",
+	}
+
+}
+////////////////////////////////////////////////////////////////////////////////
+// END
+////////////////////////////////////////////////////////////////////////////////
+//
+// $Copyright: 2016-2019 Devin Teske. All rights reserved. $
+// $FrauBSD: nsadmin/freebsd/nsadmin-update/MANIFEST 2019-11-01 15:12:40 -0700 freebsdfrau $
+//
+////////////////////////////////////////////////////////////////////////////////
