@@ -3,7 +3,7 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 16:12:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 16:16:37 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -11,7 +11,7 @@ DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.6 $'
+VERSION='$Version: 0.0.7 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -67,6 +67,7 @@ usage()
 	printf "Ignored Options (for compatibility):\n"
 	printf "$optfmt" "-d" "Not implemented."
 	printf "$optfmt" "-D" "Not implemented."
+	printf "$optfmt" "-g" "Not implemented."
 	printf "$optfmt" "-k keyfile" "Not implemented."
 	printf "$optfmt" "-L level" "Not implemented."
 	printf "$optfmt" "-p port" "Not implemented."
@@ -88,11 +89,11 @@ usage()
 #
 # Process command-line options
 #
-optign=dDk:L:p:r:R:u:vy:
+optign=dDgk:L:p:r:R:u:vy:
 optignx=PT
 while getopts ihlt:V$optign$optignx flag; do
 	case "$flag" in
-	d|D|k|L|p|r|R|u|v|y) : ignored ;;
+	d|D|g|k|L|p|r|R|u|v|y) : ignored ;;
 	P|T) exit $SUCCESS ;; # Not implemented
 	i) INTERACTIVE=1 ;;
 	l) LOCAL=1 ;;
