@@ -1,0 +1,81 @@
+#!/bin/sh
+############################################################ IDENT(1)
+#
+# $Title: Script to make dynamic changes to nsadmin $
+# $Copyright: 2019 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 15:02:07 -0700 freebsdfrau $
+#
+############################################################ GLOBALS
+
+VERSION='$Version: 0.0.1 $'
+
+pgm="${0##*/}" # Program basename
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
+#
+# Global exit status
+#
+SUCCESS=0
+FAILURE=1
+
+#
+# OS Glue
+#
+: ${UNAME_s:=$( uname -s )}
+
+#
+# Command-line options
+#
+LOCAL=		# -l
+
+############################################################ FUNCTIONS
+
+die()
+{
+	local fmt="$1"
+	if [ $# -gt 0 ]; then
+		shift 1 # fmt
+		printf "%s: $fmt\n" "$pgm" "$@" >&2
+	fi
+	exit $FAILURE
+}
+
+usage()
+{
+	local optfmt="\t%-5s %s\n"
+	exec >&2
+	if [ $# -gt 0 ]; then
+		local fmt="$1"
+		shift 1 # fmt
+		printf "%s: $fmt\n" "$pgm" "$@"
+	fi
+	printf "Usage: %s [-hlv]\n" "$pgm"
+	printf "Options:\n"
+	printf "$optfmt" "-h" "Print usage statement and exit."
+	printf "$optfmt" "-l" "Operate on local nsadmin files."
+	printf "$optfmt" "-v" "Print version and exit."
+	die
+}
+
+############################################################ MAIN
+
+#
+# Process command-line options
+#
+while getopts hlv flag; do
+	case "$flag" in
+	l) LOCAL=1 ;;
+	v) VERSION="${VERSION#*: }"
+		echo "${VERSION% $}"
+		exit $SUCCESS ;;
+	*) usage # NOTREACHED
+	esac
+done
+shift $(( $OPTIND - 1 ))
+
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################

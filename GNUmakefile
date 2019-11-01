@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/GNUmakefile 2019-11-01 14:59:51 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/GNUmakefile 2019-11-01 15:02:07 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -34,6 +34,8 @@ NSAXFR_CONF=	nsaxfr.conf
 NSNEXT=		nsnext
 NSNEXT_CONF=	nsnext.conf
 
+NSUPD=		nsupd
+
 ############################################################ TARGETS
 
 all install uninstall:
@@ -41,9 +43,11 @@ all install uninstall:
 	@printf "\tmake install-admin\tInstall nsadmin\n"
 	@printf "\tmake install-axfr\tInstall nsaxfr\n"
 	@printf "\tmake install-next\tInstall nsnext\n"
+	@printf "\tmake install-update\tInstall nsupd\n"
 	@printf "\tmake uninstall-admin\tUninstall nsadmin\n"
 	@printf "\tmake uninstall-axfr\tUninstall nsaxfr\n"
 	@printf "\tmake uninstall-next\tUninstall nsnext\n"
+	@printf "\tmake uninstall-update\tUninstall nsupd\n"
 
 install-admin:
 	$(MKDIR_P) $(BINDIR)
@@ -66,6 +70,10 @@ install-next:
 	$(CP_F) $(NSNEXT_CONF) $(CONFDIR)/$(NSNEXT_CONF).sample
 	$(CP_N) $(CONFDIR)/$(NSNEXT_CONF).sample $(CONFDIR)/$(NSNEXT_CONF)
 
+install-update:
+	$(MKDIR_P) $(BINDIR)
+	$(CP_F) $(NSUPD) $(BINDIR)/
+
 uninstall-admin:
 	$(RM_F) $(BINDIR)/$(NSADMIN)
 	CONF=$(CONFDIR)/$(NSADMIN_CONF); \
@@ -83,6 +91,9 @@ uninstall-next:
 	CONF=$(CONFDIR)/$(NSNEXT_CONF); \
 		! $(CMP_S) $$CONF.sample $$CONF || $(RM_F) -v $$CONF
 	$(RM_F) $(CONFDIR)/$(NSNEXT_CONF).sample
+
+uninstall-update:
+	$(RM_F) $(BINDIR)/$(NSUPD)
 
 ################################################################################
 # END
