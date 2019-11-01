@@ -3,7 +3,7 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 16:08:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 16:12:52 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -11,7 +11,7 @@ DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.5 $'
+VERSION='$Version: 0.0.6 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -104,6 +104,19 @@ while getopts ihlt:V$optign$optignx flag; do
 	esac
 done
 shift $(( $OPTIND - 1 ))
+
+#
+# Validate command-line options
+#
+case "$TIMEOUT" in
+""|*[!0-9]*)
+	usage "\`-t timeout' requires a numerical argument"
+	;; # NOTREACHED
+esac
+
+#
+# XXX TODO XXX
+#
 
 exit $SUCCESS
 
