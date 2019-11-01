@@ -3,11 +3,11 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 15:48:15 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 15:53:36 -0700 freebsdfrau $
 #
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.2 $'
+VERSION='$Version: 0.0.3 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -27,6 +27,7 @@ FAILURE=1
 #
 # Command-line options
 #
+INTERACTIVE=1	# -i
 LOCAL=		# -l
 
 ############################################################ FUNCTIONS
@@ -52,13 +53,13 @@ usage()
 	fi
 	printf "Usage: %s [-hlV] [ignored]\n" "$pgm"
 	printf "Options:\n"
+	printf "$optfmt" "-i" "Force interactive mode."
 	printf "$optfmt" "-h" "Print usage statement and exit."
 	printf "$optfmt" "-l" "Local-host only mode."
 	printf "$optfmt" "-V" "Print version and exit."
 	printf "Ignored Options (for compatibility):\n"
 	printf "$optfmt" "-d" "Not implemented."
 	printf "$optfmt" "-D" "Not implemented."
-	printf "$optfmt" "-i" "Not implemented."
 	printf "$optfmt" "-k keyfile" "Not implemented."
 	printf "$optfmt" "-L level" "Not implemented."
 	printf "$optfmt" "-p port" "Not implemented."
@@ -76,13 +77,16 @@ usage()
 
 ############################################################ MAIN
 
+[ -t 1 ] || INTERACTIVE= # stdin is not a TTY
+
 #
 # Process command-line options
 #
-optign=dDik:L:p:Pr:R:t:Tu:vy:
-while getopts hlV$optign flag; do
+optign=dDk:L:p:Pr:R:t:Tu:vy:
+while getopts ihlV$optign flag; do
 	case "$flag" in
-	d|D|i|k|L|p|P|r|R|t|T|u|v|y) : ignored ;;
+	d|D|k|L|p|P|r|R|t|T|u|v|y) : ignored ;;
+	i) INTERACTIVE=1 ;;
 	l) LOCAL=1 ;;
 	V) VERSION="${VERSION#*: }"
 		echo "${VERSION% $}"
