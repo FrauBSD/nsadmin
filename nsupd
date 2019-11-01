@@ -3,11 +3,15 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 16:03:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 16:08:24 -0700 freebsdfrau $
 #
+############################################################ CONFIGURATION
+
+DEFAULT_TIMEOUT=300
+
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.4 $'
+VERSION='$Version: 0.0.5 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -27,8 +31,9 @@ FAILURE=1
 #
 # Command-line options
 #
-INTERACTIVE=1	# -i
-LOCAL=		# -l
+INTERACTIVE=1			# -i
+LOCAL=				# -l
+TIMEOUT=$DEFAULT_TIMEOUT	# -t timeout
 
 ############################################################ FUNCTIONS
 
@@ -56,6 +61,8 @@ usage()
 	printf "$optfmt" "-i" "Force interactive mode."
 	printf "$optfmt" "-h" "Print usage statement and exit."
 	printf "$optfmt" "-l" "Local-host only mode."
+	printf "$optfmt" "-t timeout" \
+		"Update timeout in seconds. Default $DEFAULT_TIMEOUT."
 	printf "$optfmt" "-V" "Print version and exit."
 	printf "Ignored Options (for compatibility):\n"
 	printf "$optfmt" "-d" "Not implemented."
@@ -66,7 +73,6 @@ usage()
 	printf "$optfmt" "-P" "Not implemented. Silently exits."
 	printf "$optfmt" "-r udpretries" "Not implemented."
 	printf "$optfmt" "-R randomdev" "Not implemented."
-	printf "$optfmt" "-t timeout" "Not implemented."
 	printf "$optfmt" "-T" "Not implemented. Silently exits."
 	printf "$optfmt" "-u udptimeout" "Not implemented."
 	printf "$optfmt" "-v" "Not implemented."
@@ -82,14 +88,15 @@ usage()
 #
 # Process command-line options
 #
-optign=dDk:L:p:r:R:t:u:vy:
+optign=dDk:L:p:r:R:u:vy:
 optignx=PT
-while getopts ihlV$optign$optignx flag; do
+while getopts ihlt:V$optign$optignx flag; do
 	case "$flag" in
-	d|D|k|L|p|r|R|t|u|v|y) : ignored ;;
+	d|D|k|L|p|r|R|u|v|y) : ignored ;;
 	P|T) exit $SUCCESS ;; # Not implemented
 	i) INTERACTIVE=1 ;;
 	l) LOCAL=1 ;;
+	t) TIMEOUT="$OPTARG" ;;
 	V) VERSION="${VERSION#*: }"
 		echo "${VERSION% $}"
 		exit $SUCCESS ;;
