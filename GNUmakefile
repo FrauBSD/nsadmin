@@ -2,7 +2,7 @@
 #
 # $Title: Makefile for installing nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/GNUmakefile 2019-11-01 14:55:33 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/GNUmakefile 2019-11-01 14:59:51 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -39,11 +39,11 @@ NSNEXT_CONF=	nsnext.conf
 all install uninstall:
 	@printf "Options:\n"
 	@printf "\tmake install-admin\tInstall nsadmin\n"
-	@printf "\tmake install-next\tInstall nsnext\n"
 	@printf "\tmake install-axfr\tInstall nsaxfr\n"
+	@printf "\tmake install-next\tInstall nsnext\n"
 	@printf "\tmake uninstall-admin\tUninstall nsadmin\n"
-	@printf "\tmake uninstall-next\tUninstall nsnext\n"
 	@printf "\tmake uninstall-axfr\tUninstall nsaxfr\n"
+	@printf "\tmake uninstall-next\tUninstall nsnext\n"
 
 install-admin:
 	$(MKDIR_P) $(BINDIR)
