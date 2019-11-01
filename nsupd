@@ -3,11 +3,11 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 15:02:07 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 15:48:15 -0700 freebsdfrau $
 #
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.1 $'
+VERSION='$Version: 0.0.2 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -43,18 +43,34 @@ die()
 
 usage()
 {
-	local optfmt="\t%-5s %s\n"
+	local optfmt="\t%-16s %s\n"
 	exec >&2
 	if [ $# -gt 0 ]; then
 		local fmt="$1"
 		shift 1 # fmt
 		printf "%s: $fmt\n" "$pgm" "$@"
 	fi
-	printf "Usage: %s [-hlv]\n" "$pgm"
+	printf "Usage: %s [-hlV] [ignored]\n" "$pgm"
 	printf "Options:\n"
 	printf "$optfmt" "-h" "Print usage statement and exit."
-	printf "$optfmt" "-l" "Operate on local nsadmin files."
-	printf "$optfmt" "-v" "Print version and exit."
+	printf "$optfmt" "-l" "Local-host only mode."
+	printf "$optfmt" "-V" "Print version and exit."
+	printf "Ignored Options (for compatibility):\n"
+	printf "$optfmt" "-d" "Not implemented."
+	printf "$optfmt" "-D" "Not implemented."
+	printf "$optfmt" "-i" "Not implemented."
+	printf "$optfmt" "-k keyfile" "Not implemented."
+	printf "$optfmt" "-L level" "Not implemented."
+	printf "$optfmt" "-p port" "Not implemented."
+	printf "$optfmt" "-P" "Not implemented."
+	printf "$optfmt" "-r udpretries" "Not implemented."
+	printf "$optfmt" "-R randomdev" "Not implemented."
+	printf "$optfmt" "-t timeout" "Not implemented."
+	printf "$optfmt" "-T" "Not implemented."
+	printf "$optfmt" "-u udptimeout" "Not implemented."
+	printf "$optfmt" "-v" "Not implemented."
+	printf "$optfmt" "-y [hmac:]keyname:secret" ""
+	printf "$optfmt" "" "Not implemented."
 	die
 }
 
@@ -63,10 +79,12 @@ usage()
 #
 # Process command-line options
 #
-while getopts hlv flag; do
+optign=dDik:L:p:Pr:R:t:Tu:vy:
+while getopts hlV$optign flag; do
 	case "$flag" in
+	d|D|i|k|L|p|P|r|R|t|T|u|v|y) : ignored ;;
 	l) LOCAL=1 ;;
-	v) VERSION="${VERSION#*: }"
+	V) VERSION="${VERSION#*: }"
 		echo "${VERSION% $}"
 		exit $SUCCESS ;;
 	*) usage # NOTREACHED
