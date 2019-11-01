@@ -3,11 +3,11 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 15:53:36 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 16:03:24 -0700 freebsdfrau $
 #
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.3 $'
+VERSION='$Version: 0.0.4 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -63,11 +63,11 @@ usage()
 	printf "$optfmt" "-k keyfile" "Not implemented."
 	printf "$optfmt" "-L level" "Not implemented."
 	printf "$optfmt" "-p port" "Not implemented."
-	printf "$optfmt" "-P" "Not implemented."
+	printf "$optfmt" "-P" "Not implemented. Silently exits."
 	printf "$optfmt" "-r udpretries" "Not implemented."
 	printf "$optfmt" "-R randomdev" "Not implemented."
 	printf "$optfmt" "-t timeout" "Not implemented."
-	printf "$optfmt" "-T" "Not implemented."
+	printf "$optfmt" "-T" "Not implemented. Silently exits."
 	printf "$optfmt" "-u udptimeout" "Not implemented."
 	printf "$optfmt" "-v" "Not implemented."
 	printf "$optfmt" "-y [hmac:]keyname:secret" ""
@@ -82,10 +82,12 @@ usage()
 #
 # Process command-line options
 #
-optign=dDk:L:p:Pr:R:t:Tu:vy:
-while getopts ihlV$optign flag; do
+optign=dDk:L:p:r:R:t:u:vy:
+optignx=PT
+while getopts ihlV$optign$optignx flag; do
 	case "$flag" in
-	d|D|k|L|p|P|r|R|t|T|u|v|y) : ignored ;;
+	d|D|k|L|p|r|R|t|u|v|y) : ignored ;;
+	P|T) exit $SUCCESS ;; # Not implemented
 	i) INTERACTIVE=1 ;;
 	l) LOCAL=1 ;;
 	V) VERSION="${VERSION#*: }"
