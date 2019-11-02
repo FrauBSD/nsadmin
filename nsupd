@@ -3,15 +3,19 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 16:19:20 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-01 17:59:08 -0700 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
+# Supported commands with defined handlers
+COMMANDS="add answer del delete send server update"
+
+# Default timeout for ssh command used by send handler
 DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.8 $'
+VERSION='$Version: 0.0.9 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -34,6 +38,11 @@ FAILURE=1
 INTERACTIVE=1			# -i
 LOCAL=				# -l
 TIMEOUT=$DEFAULT_TIMEOUT	# -t timeout
+
+#
+# Miscellaneous
+#
+PROMPT="> "
 
 ############################################################ FUNCTIONS
 
@@ -82,10 +91,179 @@ usage()
 	printf "$optfmt" "" "Not implemented."
 	die
 }
+# process_call $cmd [$args ...]
+#
+# Call the command-handler for $cmd.
+#
+process_call()
+{
+	local cmd="$1"
+
+	shift 1 # cmd
+
+	# Translate `-' to `_' if necessary
+	case "$cmd" in
+	*-*) cmd=$( echo "$cmd" | awk 'gsub(/-/,"_")||1' ) ;;
+	esac
+
+	eval handle_$cmd \"\$@\"
+}
+
+# process_one $cmd [$args ...]
+#
+# Process a single command.
+#
+process_one()
+{
+	local cmd="$1" args
+	local found=
+
+	[ $# -gt 0 ] && shift 1 # cmd
+
+	# Check for invalid commands
+	case "$cmd" in
+	*[!a-zA-Z-]*|-*|*-)
+		printf "%s: invalid command \`%s'\n" "$pgm" "$cmd" >&2
+		if [ "$INTERACTIVE" ]; then
+			return $SUCCESS # Non-fatal
+		else
+			return $FAILURE # Fatal
+		fi
+		;;
+	esac
+
+	# Convert to lower-case if necessary
+	case "$cmd" in
+	*[A-Z]*) cmd=$( echo "$cmd" | awk '{print tolower($0)}' ) ;;
+	esac
+
+	# Call command handler if implemented
+	for c in $COMMANDS; do
+		[ "$cmd" = "$c" ] || continue
+		found=1
+		break
+	done
+	if [ "$found" ]; then
+		process_call "$cmd" "$@" || [ "$INTERACTIVE" ] || die
+	else
+		printf "%s: %s not implemented\n" \
+			"$pgm" "$cmd" >&2
+	fi
+
+	return $SUCCESS # Non-fatal
+}
+
+# process_file $file
+#
+# Process all the lines in $file.
+#
+process_file()
+{
+	local file="$1"
+	local cmd args
+
+	while read cmd args; do
+		process_one "$cmd" "$args" || break
+	done < "$file" || die
+}
+
+# process_user
+#
+# Process input from user.
+#
+process_user()
+{
+	local cmd args
+
+	while :; do
+		printf "%s" "$PROMPT"
+		read cmd args || break
+		process_one "$cmd" "$args"
+	done
+}
+
+# handle_add [$args ...]
+#
+# Shortcut to `handle_update add [$args ...]'
+#
+handle_add()
+{
+	handle_update add "$@"
+}
+
+# handle_answer [$args ...]
+#
+# Handler for the answer command.
+#
+handle_answer()
+{
+	local cmd=answer
+
+	printf "%s: %s: Implementation pending\n" "$pgm" "$cmd" >&2
+
+	return $SUCCESS # Non-fatal
+}
+
+# handle_del [$args ...]
+#
+# Shortcut to `handle_update del [$args ...]'
+#
+handle_del()
+{
+	handle_update del "$@"
+}
+
+# handle_delete [$args ...]
+#
+# Shortcut to `handle_update delete [$args ...]'
+#
+handle_delete()
+{
+	handle_update delete "$@"
+}
+
+# handle_send [$args ...]
+#
+# Handler for the send command.
+#
+handle_send()
+{
+	local cmd=send
+
+	printf "%s: %s: Implementation pending\n" "$pgm" "$cmd" >&2
+
+	return $SUCCESS # Non-fatal
+}
+
+# handle_server [$args ...]
+#
+# Handler for the server command.
+#
+handle_server()
+{
+	local cmd=server
+
+	printf "%s: %s: Implementation pending\n" "$pgm" "$cmd" >&2
+
+	return $SUCCESS # Non-fatal
+}
+
+# handle_update [$args ...]
+#
+# Handler for the update command.
+#
+handle_update()
+{
+	local cmd=update
+
+	printf "%s: %s: Implementation pending\n" "$pgm" "$cmd" >&2
+
+	return $SUCCESS # Non-fatal
+}
 
 ############################################################ MAIN
 
-[ -t 1 ] || INTERACTIVE= # stdin is not a TTY
+[ -t 0 ] || INTERACTIVE= # stdin is not a TTY
 
 #
 # Process command-line options
@@ -117,8 +295,16 @@ case "$TIMEOUT" in
 esac
 
 #
-# XXX TODO XXX
+# Process desired input
 #
+if [ $# -gt 0 ]; then
+	INTERACTIVE=
+	process_file "$1"
+elif [ ! "$INTERACTIVE" ]; then
+	process_file /dev/stdin
+else
+	process_user
+fi
 
 exit $SUCCESS
 
