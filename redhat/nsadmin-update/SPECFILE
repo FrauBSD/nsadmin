@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsupd package for nsadmin
 License: BSD
-Version: 0.0.8
+Version: 0.0.9
 Release: 1
 Buildarch: noarch
 
@@ -74,6 +74,13 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Nov  1 2019 Devin Teske <dteske@fraubsd.org> 0.0.9-1
+- 4c1811d Add command handling
+- 4c1811d Program in the commands we need for foreman support
+- 4c1811d Fix a bug in detecting non-TTY stdin
+- 4c1811d Comments
+- 4c1811d Add user CLI interface
+- 4c1811d Add file and stdin processing functions
 * Fri Nov  1 2019 Devin Teske <dteske@fraubsd.org> 0.0.8-1
 - e2570af Add -o to the list of options ignored
 * Fri Nov  1 2019 Devin Teske <dteske@fraubsd.org> 0.0.7-1
