@@ -3,7 +3,7 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-01 17:59:08 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-04 15:07:17 -0800 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -15,7 +15,7 @@ DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.0.9 $'
+VERSION='$Version: 0.1 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -91,6 +91,34 @@ usage()
 	printf "$optfmt" "" "Not implemented."
 	die
 }
+
+# get_random [$var_to_set]
+#
+# Obtain a random number. If $var_to_set is NULL or missing, printed on stdout.
+#
+get_random()
+{
+	local var_to_set="$1"
+	local dd="dd if=/dev/urandom of=/dev/stdout"
+	local rand
+
+	rand=$( awk -v dd="$dd 2> /dev/null" -v sample=256 '
+		BEGIN {
+			while (sample && dd | getline > 0)
+				seed += int($0 sample--)
+			close(dd)
+			srand(seed)
+			printf "%.0f\n", rand() * 65535
+		}
+	' )
+
+	if [ "$var_to_set" ]; then
+		eval $var_to_set=\"\$rand\"
+	else
+		echo "$rand"
+	fi
+}
+
 # process_call $cmd [$args ...]
 #
 # Call the command-handler for $cmd.
@@ -197,9 +225,22 @@ handle_add()
 #
 handle_answer()
 {
-	local cmd=answer
+	local id
 
-	printf "%s: %s: Implementation pending\n" "$pgm" "$cmd" >&2
+	[ "$ZONE" ] || return
+
+	# STATUS is REFUSED or NOERROR (checked by foreman)
+	get_random id
+
+	printf "Answer:\n"
+	printf ";; ->>HEADER<<- opcode: UPDATE, status: %s, id: %6u\n" \
+		"${STATUS:-NOERROR}" "$id"
+	printf ";; flags: qr; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 1\n"
+	printf ";; ZONE SECTION:\n"
+	printf ";%s.\t\t\tIN\tSOA\n" "$ZONE"
+	printf "\n"
+
+	# NB: Foreman does not need the TSIG PSEUDOSECTION
 
 	return $SUCCESS # Non-fatal
 }
