@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2019-10-31 11:50:37 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2019-11-07 13:57:02 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,10 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2019: Release 5.2
+# 		- Add a warn function
+# 		- Warn when a jnl (journal) file exists for master zone
+# 		- Fixup warnings about jnl (journal) files
 # 	Oct 2019: Release 5.1.1
 # 		- Prevent management of more invalid domain names
 # 		- Comments
@@ -305,7 +309,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.1.1 $'
+VERSION='$Version: 5.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1203,7 +1207,9 @@ genconf()
 #?			printf "\t  \033[2m-> %s\033[m\n" \
 #?				"$file" >&2 # Testing -- Devin
 			case "$file" in
-			*.jnl) continue ;;
+			*.jnl) # Journal file
+				warn "$file exists"
+				continue ;;
 			esac
 			zone="${file##*/}"
 			printf 'zone "%s" in {\n' "$zone"
@@ -1229,8 +1235,7 @@ genconf()
 #?				"$file" >&2 # Testing -- Devin
 			case "$file" in
 			*.jnl) # Journal file
-				msg "WARNING: $file exists" \
-				    "(\`rndc freeze' may be required)" >&2
+				warn "$file exists"
 				continue ;;
 			esac
 			zone="${file##*/}"
@@ -1384,6 +1389,19 @@ msg()
 	printf "\n%s\n\n" "$msg"
 	printf "\n%s\n\n" "$msg" >> "$log"
 	logger -p user.info -t Info "$msg"
+}
+
+# warn $text ...
+#
+# Warn the user in terminal, log file, and syslog.
+#
+warn()
+{
+	local msg="$*"
+
+	printf "\033[33;1mWARNING!\033[m %s\n" "$msg" >&2
+	printf "WARNING! %s\n" "$msg" >> "$log"
+	logger -p user.info -t Info "WARNING! $msg"
 }
 
 # sigquit
