@@ -3,7 +3,7 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-07 14:54:31 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-07 15:25:49 -0800 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -15,7 +15,7 @@ DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.1.2 $'
+VERSION='$Version: 0.1.3 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -50,8 +50,12 @@ FILE=
 #
 PROMPT="> "
 SERVER=
+UPDZONES=
 
 ############################################################ FUNCTIONS
+
+debug(){ [ $DEBUG -gt 0 ] || return; printf "%s\n" "$*" >&2; }
+xdebug(){ [ $DEBUG -eq 2 ] || return; printf "%s\n" "$*" >&2; }
 
 die()
 {
@@ -212,6 +216,8 @@ process_user()
 {
 	local cmd args
 
+	xdebug "user_interaction()"
+
 	while :; do
 		printf "%s" "$PROMPT"
 		read cmd args || break
@@ -235,18 +241,21 @@ handle_add()
 handle_answer()
 {
 	local id
+	local zone
 
-	[ "$ZONE" ] || return
+	[ "$STATUS" ] || return
 
-	# STATUS is REFUSED or NOERROR (checked by foreman)
+	# STATUS is NOERROR/REFUSED/NOTZONE/etc. (checked by foreman)
 	get_random id
 
 	printf "Answer:\n"
 	printf ";; ->>HEADER<<- opcode: UPDATE, status: %s, id: %6u\n" \
 		"${STATUS:-NOERROR}" "$id"
 	printf ";; flags: qr; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 1\n"
-	printf ";; ZONE SECTION:\n"
-	printf ";%s.\t\t\tIN\tSOA\n" "$ZONE"
+	[ "$UPDZONES" ] && printf ";; ZONE SECTION:\n"
+	for zone in $UPDZONES; do
+		printf ";%s.\t\t\tIN\tSOA\n" "$zone"
+	done
 	printf "\n"
 
 	# NB: Foreman does not need the TSIG PSEUDOSECTION
@@ -333,15 +342,25 @@ send_local()
 send_server()
 {
 	local xtra=
+	local output
 
 	if [ $DEBUG -eq 1 ]; then
 		xtra="$xtra -d"
 	elif [ $DEBUG -eq 2 ]; then
 		xtra="$xtra -D"
+	fi
 	
-	echo "$INPUT" | ssh -oStrictHostKeyChecking=no -oBatchMode=yes \
-		-oPasswordAuthentication=no "root@$SERVER" \
-		/usr/local/bin/nsupd
+	STATUS=$( echo "$INPUT" | awk '
+		{ cmd = tolower($1) }
+		cmd == "server" { next }
+		{ print }
+	' | ssh -oStrictHostKeyChecking=no \
+		-oBatchMode=yes \
+		-oPasswordAuthentication=no \
+		"root@$SERVER" \
+		/usr/local/bin/nsupd $xtra -l - 2>&1 )
+
+	: "${STATUS:=UNKNOWN}"
 }
 
 ############################################################ MAIN
@@ -379,6 +398,9 @@ case "$TIMEOUT" in
 	;; # NOTREACHED
 esac
 
+xdebug "setup_system()"
+xdebug "reset_system()"
+
 #
 # Process desired input
 #
@@ -391,6 +413,8 @@ elif [ ! "$INTERACTIVE" ]; then
 else
 	process_user
 fi
+
+xdebug "shutdown_program()"
 
 exit $SUCCESS
 
