@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsupd package for nsadmin
 License: BSD
-Version: 0.1.1
+Version: 0.1.2
 Release: 1
 Buildarch: noarch
 
@@ -74,6 +74,13 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.2-1
+- 3297f69 Add support for `-d' and `-D' from nsupdate
+- 3297f69 Update usage statement (-h)
+- 3297f69 Add support for `-' as filename for `/dev/stdin'
+- 3297f69 Add initial code for `send' command handler
+- 3297f69 Add skeleton `send' functionality
+- 3297f69 Assign positional argument to variable for clarity
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.1-1
 - 2a5d6b9 Implement `server' command handler
 * Fri Nov  1 2019 Devin Teske <dteske@fraubsd.org> 0.1-1
