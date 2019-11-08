@@ -3,19 +3,19 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-07 16:32:34 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-07 17:53:53 -0800 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
-# Supported commands with defined handlers
+# Supported commands with defined processors
 COMMANDS="add answer del delete send server update"
 
-# Default timeout for ssh command used by send handler
+# Default timeout for ssh command used by send processor
 DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.1.5 $'
+VERSION='$Version: 0.1.6 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -48,6 +48,7 @@ FILE=
 #
 # Miscellaneous
 #
+NCMDS=0
 PROMPT="> "
 SERVER=
 UPDZONES=
@@ -57,6 +58,10 @@ UPDZONES=
 debug(){ [ $DEBUG -gt 0 ] || return; printf "%s\n" "$*" >&2; }
 xdebug(){ [ $DEBUG -eq 2 ] || return; printf "%s\n" "$*" >&2; }
 
+# die [$fmt [$args ...]]
+#
+# Optionally write a message to stderr before exiting with error status.
+#
 die()
 {
 	local fmt="$1"
@@ -67,6 +72,10 @@ die()
 	exit $FAILURE
 }
 
+# usage [$fmt [$args ...]]
+#
+# Print usage statement and exit. Optional error message supported.
+#
 usage()
 {
 	local optfmt="\t%-16s %s\n"
@@ -131,11 +140,11 @@ get_random()
 	fi
 }
 
-# process_call $cmd [$args ...]
+# call_process $cmd [$args ...]
 #
-# Call the command-handler for $cmd.
+# Call the command-processor for $cmd.
 #
-process_call()
+call_process()
 {
 	local cmd="$1"
 
@@ -146,14 +155,14 @@ process_call()
 	*-*) cmd=$( echo "$cmd" | awk 'gsub(/-/,"_")||1' ) ;;
 	esac
 
-	eval handle_$cmd \"\$@\"
+	process_$cmd "$@"
 }
 
-# process_one $cmd [$args ...]
+# one_process $cmd [$args ...]
 #
 # Process a single command.
 #
-process_one()
+one_process()
 {
 	local cmd="$1" args
 	local found=
@@ -184,7 +193,7 @@ process_one()
 		break
 	done
 	if [ "$found" ]; then
-		process_call "$cmd" "$@" || [ "$INTERACTIVE" ] || die
+		call_process "$cmd" "$@" || [ "$INTERACTIVE" ] || die
 	else
 		printf "%s: %s not implemented\n" \
 			"$pgm" "$cmd" >&2
@@ -193,26 +202,26 @@ process_one()
 	return $SUCCESS # Non-fatal
 }
 
-# process_file $file
+# file_process $file
 #
 # Process all the lines in $file.
 #
-process_file()
+file_process()
 {
 	local file="$1"
 	local cmd args
 
 	[ "$file" = "-" ] && file=/dev/stdin
 	while read cmd args; do
-		process_one "$cmd" "$args" || break
+		one_process "$cmd" "$args" || break
 	done < "$file" || die
 }
 
-# process_user
+# user_process
 #
 # Process input from user.
 #
-process_user()
+user_process()
 {
 	local cmd args
 
@@ -221,112 +230,30 @@ process_user()
 	while :; do
 		printf "%s" "$PROMPT"
 		read cmd args || break
-		process_one "$cmd" "$args"
+		one_process "$cmd" "$args"
 	done
-}
-
-# handle_add [$args ...]
-#
-# Shortcut to `handle_update add [$args ...]'
-#
-handle_add()
-{
-	handle_update add "$@"
-}
-
-# handle_answer [$args ...]
-#
-# Handler for the answer command.
-#
-handle_answer()
-{
-	local id
-	local zone
-
-	[ "$STATUS" ] || return
-
-	# STATUS is NOERROR/REFUSED/NOTZONE/etc. (checked by foreman)
-	get_random id
-
-	printf "Answer:\n"
-	printf ";; ->>HEADER<<- opcode: UPDATE, status: %s, id: %6u\n" \
-		"${STATUS:-NOERROR}" "$id"
-	printf ";; flags: qr; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 1\n"
-	[ "$UPDZONES" ] && printf ";; ZONE SECTION:\n"
-	for zone in $UPDZONES; do
-		printf ";%s.\t\t\tIN\tSOA\n" "$zone"
-	done
-	printf "\n"
-
-	# NB: Foreman does not need the TSIG PSEUDOSECTION
-
-	return $SUCCESS # Non-fatal
-}
-
-# handle_del [$args ...]
-#
-# Shortcut to `handle_update del [$args ...]'
-#
-handle_del()
-{
-	handle_update del "$@"
-}
-
-# handle_delete [$args ...]
-#
-# Shortcut to `handle_update delete [$args ...]'
-#
-handle_delete()
-{
-	handle_update delete "$@"
-}
-
-# handle_send [$args ...]
-#
-# Handler for the send command.
-#
-handle_send()
-{
-	if [ "$LOCAL" ]; then
-		send_local
-	else
-		send_server
-	fi
-}
-
-# handle_server [$args ...]
-#
-# Handler for the server command.
-#
-handle_server()
-{
-	if [ "$LOCAL" ]; then
-		echo "cannot reset server in localhost-only mode" >&2
-		return
-	fi
-
-	SERVER="$1"
-	# Remaining arguments silently ignored
-}
-
-# handle_update [$args ...]
-#
-# Handler for the update command.
-#
-handle_update()
-{
-	printf "%s: handle_update: Implementation pending\n" "$pgm" >&2
-
-	return $SUCCESS # Non-fatal
 }
 
 # send_local
 #
-# Perform actions locally.
+# Perform local actions.
 #
 send_local()
 {
-	printf "%s: send_local: Implementation pending\n" "$pgm" >&2
+	local n=0
+	local cmd
+	local func
+
+	while [ $n -lt $NCMDS ]; do
+		n=$(( $n + 1 ))
+		eval set -- \$cmd$n \$args$n
+		[ $# -gt 0 ] || continue
+		cmd="$1"
+		shift 1 # cmd
+		handler_$cmd "$@"
+	done
+
+	NCMDS=0
 
 	return $SUCCESS # Non-fatal
 }
@@ -357,6 +284,119 @@ send_server()
 		/usr/local/bin/nsupd $xtra -l -
 
 	return $SUCCESS
+}
+
+############################################################ CMD PROCESSORS
+# Called when command defined in COMMANDS is encountered
+
+# process_add [$args ...]
+#
+# Shortcut to `process_update add [$args ...]'
+#
+process_add()
+{
+	process_update add "$@"
+}
+
+# process_answer [$args ...]
+#
+# Handler for the answer command.
+#
+process_answer()
+{
+	local id
+	local zone
+
+	[ "$STATUS" ] || return
+
+	# STATUS is NOERROR/REFUSED/NOTZONE/etc. (checked by foreman)
+	get_random id
+
+	printf "Answer:\n"
+	printf ";; ->>HEADER<<- opcode: UPDATE, status: %s, id: %6u\n" \
+		"${STATUS:-NOERROR}" "$id"
+	printf ";; flags: qr; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 1\n"
+	[ "$UPDZONES" ] && printf ";; ZONE SECTION:\n"
+	for zone in $UPDZONES; do
+		printf ";%s.\t\t\tIN\tSOA\n" "$zone"
+	done
+	printf "\n"
+
+	# NB: Foreman does not need the TSIG PSEUDOSECTION
+
+	return $SUCCESS # Non-fatal
+}
+
+# process_del [$args ...]
+#
+# Shortcut to `process_update del [$args ...]'
+#
+process_del()
+{
+	process_update delete "$@"
+}
+
+# process_delete [$args ...]
+#
+# Shortcut to `process_update delete [$args ...]'
+#
+process_delete()
+{
+	process_update delete "$@"
+}
+
+# process_send [$args ...]
+#
+# Handler for the send command.
+#
+process_send()
+{
+	if [ "$LOCAL" ]; then
+		send_local
+	else
+		send_server
+	fi
+}
+
+# process_server [$args ...]
+#
+# Handler for the server command.
+#
+process_server()
+{
+	if [ "$LOCAL" ]; then
+		echo "cannot reset server in localhost-only mode" >&2
+		return
+	fi
+
+	SERVER="$1"
+	# Remaining arguments silently ignored
+}
+
+# process_update [$args ...]
+#
+# Handler for the update command.
+#
+process_update()
+{
+	printf "%s: process_update: Implementation pending\n" "$pgm" >&2
+
+	return $SUCCESS # Non-fatal
+}
+
+############################################################ CMD HANDLERS
+# Called when handling commands stored by processors
+# NB: Not all processors store commands.
+
+# handle_update [$args ...]
+#
+# Handler for the update command.
+#
+handle_update()
+{
+	printf "%s: handle_update: Implementation pending\n" "$pgm" >&2
+
+	return $SUCCESS # Non-fatal
 }
 
 ############################################################ MAIN
@@ -403,11 +443,11 @@ xdebug "reset_system()"
 if [ $# -gt 0 ]; then
 	FILE="$1"
 	INTERACTIVE=
-	process_file "$FILE"
+	file_process "$FILE"
 elif [ ! "$INTERACTIVE" ]; then
-	process_file /dev/stdin
+	file_process /dev/stdin
 else
-	process_user
+	user_process
 fi
 
 xdebug "shutdown_program()"
