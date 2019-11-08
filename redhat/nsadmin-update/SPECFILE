@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsupd package for nsadmin
 License: BSD
-Version: 0.1.4
+Version: 0.1.5
 Release: 1
 Buildarch: noarch
 
@@ -74,6 +74,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.5-1
+- c8edd47 Cleanup locals and prepare for handler updates
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.4-1
 - 5d40a50 Display raw output from remote agent
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.3-1
