@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsupd package for nsadmin
 License: BSD
-Version: 0.1.5
+Version: 0.1.6
 Release: 1
 Buildarch: noarch
 
@@ -74,6 +74,14 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.6-1
+- a74548d Change handlers to ``processors''
+- a74548d Recreate ``handlers'' as the work-horses invoked after `send'
+- a74548d Design method by-which commands stored by processors are handled
+- a74548d Add description comments above die/usage functions
+- a74548d Separate processors/handlers from main functions
+- a74548d Implement send_local() function
+- a74548d Add placeholder for update handler
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.5-1
 - c8edd47 Cleanup locals and prepare for handler updates
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.4-1
