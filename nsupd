@@ -3,7 +3,7 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-07 15:36:17 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-07 16:32:34 -0800 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
@@ -15,7 +15,7 @@ DEFAULT_TIMEOUT=300
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.1.4 $'
+VERSION='$Version: 0.1.5 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -287,8 +287,6 @@ handle_delete()
 #
 handle_send()
 {
-	local cmd=send
-
 	if [ "$LOCAL" ]; then
 		send_local
 	else
@@ -302,11 +300,9 @@ handle_send()
 #
 handle_server()
 {
-	local cmd=server
-
 	if [ "$LOCAL" ]; then
 		echo "cannot reset server in localhost-only mode" >&2
-		return $SUCCESS # Non-fatal
+		return
 	fi
 
 	SERVER="$1"
@@ -319,25 +315,25 @@ handle_server()
 #
 handle_update()
 {
-	local cmd=update
-
-	printf "%s: %s: Implementation pending\n" "$pgm" "$cmd" >&2
+	printf "%s: handle_update: Implementation pending\n" "$pgm" >&2
 
 	return $SUCCESS # Non-fatal
 }
 
 # send_local
 #
-# Perform pending actions locally.
+# Perform actions locally.
 #
 send_local()
 {
-	: XXX TODO XXX
+	printf "%s: send_local: Implementation pending\n" "$pgm" >&2
+
+	return $SUCCESS # Non-fatal
 }
 
 # send_server
 #
-# Perform pending actions on $SERVER.
+# Perform actions on $SERVER.
 #
 send_server()
 {
