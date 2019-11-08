@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsupd package for nsadmin
 License: BSD
-Version: 0.1.6
+Version: 0.1.7
 Release: 1
 Buildarch: noarch
 
@@ -74,6 +74,11 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Nov  8 2019 Devin Teske <dteske@fraubsd.org> 0.1.7-1
+- 1c459a8 Add `-p port' support (default 22)
+- 1c459a8 Add zone command
+- 1c459a8 Move answer logic from processor to handler
+- 1c459a8 Comments
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 0.1.6-1
 - a74548d Change handlers to ``processors''
 - a74548d Recreate ``handlers'' as the work-horses invoked after `send'
