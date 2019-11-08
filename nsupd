@@ -3,19 +3,22 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-07 17:53:53 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-08 09:03:58 -0800 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
 # Supported commands with defined processors
-COMMANDS="add answer del delete send server update"
+COMMANDS="add answer del delete send server update zone"
 
 # Default timeout for ssh command used by send processor
 DEFAULT_TIMEOUT=300
 
+# Default port for ssh command used by send processor
+DEFAULT_PORT=22
+
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.1.6 $'
+VERSION='$Version: 0.1.7 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -49,9 +52,10 @@ FILE=
 # Miscellaneous
 #
 NCMDS=0
+PORT=$DEFAULT_PORT
 PROMPT="> "
 SERVER=
-UPDZONES=
+ZONE=
 
 ############################################################ FUNCTIONS
 
@@ -85,14 +89,15 @@ usage()
 		shift 1 # fmt
 		printf "%s: $fmt\n" "$pgm" "$@"
 	fi
-	printf "Usage: %s [-dDhilV] [-t timeout] [ignored] [--] [filename]\n" \
-		"$pgm"
+	printf "Usage: %s [-dDhilV] %s [ignored] [--] [filename]\n" \
+		"[-t timeout] [-p port]" "$pgm"
 	printf "Options:\n"
 	printf "$optfmt" "-d" "Debug mode."
 	printf "$optfmt" "-D" "Extra debug mode."
 	printf "$optfmt" "-i" "Force interactive mode."
 	printf "$optfmt" "-h" "Print usage statement and exit."
 	printf "$optfmt" "-l" "Local-host only mode."
+	printf "$optfmt" "-p port" "Port to connect on. Default $DEFAULT_PORT."
 	printf "$optfmt" "-t timeout" \
 		"Update timeout in seconds. Default $DEFAULT_TIMEOUT."
 	printf "$optfmt" "-V" "Print version and exit."
@@ -101,7 +106,6 @@ usage()
 	printf "$optfmt" "-k keyfile" "Not implemented."
 	printf "$optfmt" "-L level" "Not implemented."
 	printf "$optfmt" "-o" "Not implemented."
-	printf "$optfmt" "-p port" "Not implemented."
 	printf "$optfmt" "-P" "Not implemented. Silently exits."
 	printf "$optfmt" "-r udpretries" "Not implemented."
 	printf "$optfmt" "-R randomdev" "Not implemented."
@@ -298,33 +302,13 @@ process_add()
 	process_update add "$@"
 }
 
-# process_answer [$args ...]
+# process_answer
 #
-# Handler for the answer command.
+# Processor for the answer command.
 #
 process_answer()
 {
-	local id
-	local zone
-
-	[ "$STATUS" ] || return
-
-	# STATUS is NOERROR/REFUSED/NOTZONE/etc. (checked by foreman)
-	get_random id
-
-	printf "Answer:\n"
-	printf ";; ->>HEADER<<- opcode: UPDATE, status: %s, id: %6u\n" \
-		"${STATUS:-NOERROR}" "$id"
-	printf ";; flags: qr; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 1\n"
-	[ "$UPDZONES" ] && printf ";; ZONE SECTION:\n"
-	for zone in $UPDZONES; do
-		printf ";%s.\t\t\tIN\tSOA\n" "$zone"
-	done
-	printf "\n"
-
-	# NB: Foreman does not need the TSIG PSEUDOSECTION
-
-	return $SUCCESS # Non-fatal
+	handle_answer
 }
 
 # process_del [$args ...]
@@ -347,7 +331,7 @@ process_delete()
 
 # process_send [$args ...]
 #
-# Handler for the send command.
+# Processor for the send command.
 #
 process_send()
 {
@@ -358,9 +342,9 @@ process_send()
 	fi
 }
 
-# process_server [$args ...]
+# process_server $server [$port]
 #
-# Handler for the server command.
+# Processor for the server command.
 #
 process_server()
 {
@@ -370,18 +354,35 @@ process_server()
 	fi
 
 	SERVER="$1"
+	PORT="${2:-$DEFAULT_PORT}"
 	# Remaining arguments silently ignored
 }
 
 # process_update [$args ...]
 #
-# Handler for the update command.
+# Processor for the update command.
 #
 process_update()
 {
 	printf "%s: process_update: Implementation pending\n" "$pgm" >&2
 
 	return $SUCCESS # Non-fatal
+}
+
+# process_zone $zone
+#
+# Processor for the zone command.
+#
+process_zone()
+{
+	local zone="$1"
+
+	if [ ! "$zone" ]; then
+		echo "could not read zone name" >&2
+		return
+	fi
+
+	ZONE="$1"
 }
 
 ############################################################ CMD HANDLERS
@@ -399,6 +400,33 @@ handle_update()
 	return $SUCCESS # Non-fatal
 }
 
+# handle_answer
+#
+# Handler for the answer command.
+#
+handle_answer()
+{
+	local id
+	local zone
+
+	[ "$STATUS" ] || return
+
+	# STATUS is NOERROR/REFUSED/NOTZONE/etc. (checked by foreman)
+	get_random id
+
+	printf "Answer:\n"
+	printf ";; ->>HEADER<<- opcode: UPDATE, status: %s, id: %6u\n" \
+		"${STATUS:-NOERROR}" "$id"
+	printf ";; flags: qr; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 1\n"
+	printf ";; ZONE SECTION:\n"
+	printf ";%s.\t\t\tIN\tSOA\n" "$ZONE"
+	printf "\n"
+
+	# NB: Foreman does not need the TSIG PSEUDOSECTION
+
+	return $SUCCESS # Non-fatal
+}
+
 ############################################################ MAIN
 
 [ -t 0 ] || INTERACTIVE= # stdin is not a TTY
@@ -406,13 +434,14 @@ handle_update()
 #
 # Process command-line options
 #
-optign=gk:L:op:r:R:u:vy:
+optign=gk:L:or:R:u:vy:
 optignx=PT
-while getopts dDihlt:V$optign$optignx flag; do
+while getopts dDihlp:t:V$optign$optignx flag; do
 	case "$flag" in
-	g|k|L|o|p|r|R|u|v|y) : ignored ;;
-	D) [ $DEBUG -lt 2 ] && DEBUG=2 ;;
+	g|k|L|o|r|R|u|v|y) : ignored ;;
 	d) [ $DEBUG -lt 1 ] && DEBUG=1 ;;
+	D) [ $DEBUG -lt 2 ] && DEBUG=2 ;;
+	p) PORT="$OPTARG" ;;
 	P|T) exit $SUCCESS ;; # Not implemented
 	i) INTERACTIVE=1 ;;
 	l) LOCAL=1 ;;
@@ -430,8 +459,11 @@ shift $(( $OPTIND - 1 ))
 #
 case "$TIMEOUT" in
 ""|*[!0-9]*)
-	usage "\`-t timeout' requires a numerical argument"
-	;; # NOTREACHED
+	usage "\`-t timeout' requires a numerical argument" ;; # NOTREACHED
+esac
+case "$PORT" in
+""|*[!0-9]*)
+	usage "\`-p port' requires a numerical argument" ;; # NOTREACHED
 esac
 
 xdebug "setup_system()"
