@@ -3,25 +3,25 @@
 #
 # $Title: Script to make dynamic changes to nsadmin $
 # $Copyright: 2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsupd 2019-11-13 14:01:49 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsupd 2019-11-13 21:43:03 -0800 freebsdfrau $
 #
 ############################################################ CONFIGURATION
 
-# Supported commands with defined processors
+# Supported commands with defined evaluators
 COMMANDS="add answer del delete send server update zone"
 
-# Default timeout for ssh command used by send processor
+# Default timeout for ssh command used by send evaluator
 DEFAULT_TIMEOUT=300
 
-# Default port for ssh command used by send processor
-DEFAULT_PORT=22
+# Default port for ssh command used by send evaluator
+DEFAULT_SSHPORT=22
 
-# Default keyfile for ssh command used by send processor
-DEFAULT_SSHKEY=~/.ssh/id_rsa
+# Default keyfile for ssh command used by send evaluator
+DEFAULT_SSHKEY=
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 0.1.8 $'
+VERSION='$Version: 0.1.9 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -44,6 +44,7 @@ FAILURE=1
 DEBUG=0				# -d | -D
 INTERACTIVE=1			# -i
 LOCAL=				# -l
+SSHPORT=$DEFAULT_SSHPORT	# -p port
 SSHKEY="$DEFAULT_SSHKEY"	# -k keyfile
 TIMEOUT=$DEFAULT_TIMEOUT	# -t timeout
 
@@ -53,11 +54,18 @@ TIMEOUT=$DEFAULT_TIMEOUT	# -t timeout
 FILE=
 
 #
+# Literals
+#
+NL="
+" # END-QUOTE
+
+#
 # Miscellaneous
 #
+ARGS=
+CMD=
+ERROR=
 INPUT=
-NCMDS=0
-PORT=$DEFAULT_PORT
 PROMPT="> "
 SERVER=
 ZONE=
@@ -101,9 +109,10 @@ usage()
 	printf "$optfmt" "-D" "Extra debug mode."
 	printf "$optfmt" "-h" "Print usage statement and exit."
 	printf "$optfmt" "-i" "Force interactive mode."
-	printf "$optfmt" "-k keyfile" "SSH key. Default $DEFAULT_SSHKEY."
+	printf "$optfmt" "-k keyfile" "SSH key. No default."
 	printf "$optfmt" "-l" "Local-host only mode."
-	printf "$optfmt" "-p port" "Port to connect on. Default $DEFAULT_PORT."
+	printf "$optfmt" "-p port" \
+		"Port to connect on. Default $DEFAULT_SSHPORT."
 	printf "$optfmt" "-t timeout" \
 		"Update timeout in seconds. Default $DEFAULT_TIMEOUT."
 	printf "$optfmt" "-V" "Print version and exit."
@@ -149,13 +158,95 @@ get_random()
 	fi
 }
 
-# call_process $cmd [$args ...]
+# setup_system "$@"
 #
-# Call the command-processor for $cmd.
+# Setup parsing system based on script arguments.
+# 
+setup_system()
+{
+	xdebug "setup_system()"
+	if [ $# -gt 0 ]; then
+		FILE="$1"
+		INTERACTIVE=
+		exec < "$FILE"
+	elif [ ! "$INTERACTIVE" ]; then
+		FILE=/dev/stdin
+		exec < "$FILE"
+	fi
+}
+
+# reset_system
 #
-call_process()
+# Reset globals in-between successful commands.
+#
+reset_system()
+{
+	xdebug "reset_system()"
+
+	CMD=
+	ARGS=
+}
+
+# user_interaction
+#
+# Produce user prompt when running interactive.
+#
+user_interaction()
+{
+	[ "$ERROR" ] || xdebug "user_interaction()"
+	ERROR=
+	[ "$INTERACTIVE" ] && printf "%s" "$PROMPT"
+	read CMD ARGS || return
+	: "${CMD:=send}" # Default action
+}
+
+# start_update
+#
+# Called before send.
+#
+start_update()
+{
+	xdebug "start_update()"
+}
+
+# done_update
+#
+# Called after a successful send.
+#
+done_update()
+{
+	xdebug "done_update()"
+
+	reset_system
+}
+
+# cleanup
+#
+# Called before program shutdown.
+#
+cleanup()
+{
+	xdebug "cleanup()"
+}
+
+# shutdown_program
+#
+# Called right before exit.
+#
+shutdown_program()
+{
+	xdebug "shutdown_program()"
+}
+
+# call_evaluator $cmd [$args ...]
+#
+# Call the command-evaluator for $cmd.
+#
+call_evaluator()
 {
 	local cmd="$1"
+
+	[ $# -gt 0 -a "$cmd" ] || return $SUCCESS
 
 	shift 1 # cmd
 
@@ -164,29 +255,28 @@ call_process()
 	*-*) cmd=$( echo "$cmd" | awk 'gsub(/-/,"_")||1' ) ;;
 	esac
 
-	process_$cmd "$@"
+	evaluate_$cmd "$@"
 }
 
-# one_process $cmd [$args ...]
+# do_next_command $cmd [$args ...]
 #
-# Process a single command.
+# Evaluate a single command.
 #
-one_process()
+do_next_command()
 {
 	local cmd="$1" args
 	local found=
+
+	xdebug "do_next_command()"
 
 	[ $# -gt 0 ] && shift 1 # cmd
 
 	# Check for invalid commands
 	case "$cmd" in
 	*[!a-zA-Z-]*|-*|*-)
-		printf "%s: invalid command \`%s'\n" "$pgm" "$cmd" >&2
-		if [ "$INTERACTIVE" ]; then
-			return $SUCCESS # Non-fatal
-		else
-			return $FAILURE # Fatal
-		fi
+		printf "incorrect section name: %s\n" "$cmd" >&2
+		[ "$INTERACTIVE" ] || die "syntax error"
+		return $FAILURE
 		;;
 	esac
 
@@ -195,51 +285,22 @@ one_process()
 	*[A-Z]*) cmd=$( echo "$cmd" | awk '{print tolower($0)}' ) ;;
 	esac
 
-	# Call command handler if implemented
-	for c in $COMMANDS; do
+	# Find command handler
+	for c in "" $COMMANDS; do
 		[ "$cmd" = "$c" ] || continue
 		found=1
 		break
 	done
+
 	if [ "$found" ]; then
-		call_process "$cmd" "$@" || [ "$INTERACTIVE" ] || die
-	else
-		printf "%s: %s not implemented\n" \
-			"$pgm" "$cmd" >&2
+		call_evaluator "$cmd" "$@" || [ "$INTERACTIVE" ] || die
+	elif [ "$cmd" ]; then
+		printf "incorrect section name: %s\n" "$cmd" >&2
+		[ "$INTERACTIVE" ] || die "syntax error"
+		return $FAILURE
 	fi
 
-	return $SUCCESS # Non-fatal
-}
-
-# file_process $file
-#
-# Process all the lines in $file.
-#
-file_process()
-{
-	local file="$1"
-	local cmd args
-
-	[ "$file" = "-" ] && file=/dev/stdin
-	while read cmd args; do
-		one_process "$cmd" "$args" || break
-	done < "$file" || die
-}
-
-# user_process
-#
-# Process input from user.
-#
-user_process()
-{
-	local cmd args
-
-	while :; do
-		printf "%s" "$PROMPT"
-		read cmd args || break
-		one_process "$cmd" "$args"
-		xdebug "do_next_command()"
-	done
+	return $SUCCESS
 }
 
 # send_local
@@ -252,16 +313,12 @@ send_local()
 	local cmd
 	local func
 
-	while [ $n -lt $NCMDS ]; do
-		n=$(( $n + 1 ))
-		eval set -- \$cmd$n \$args$n
-		[ $# -gt 0 ] || continue
-		cmd="$1"
-		shift 1 # cmd
+	while read cmd args; do
+		set -- $cmd $args
 		handler_$cmd "$@"
-	done
-
-	NCMDS=0
+	done <<-EOF
+	$INPUT
+	EOF
 
 	return $SUCCESS # Non-fatal
 }
@@ -275,6 +332,8 @@ send_server()
 	local xtra=
 	local output
 
+	[ "$INPUT" ] || return $SUCCESS
+
 	if [ $DEBUG -eq 1 ]; then
 		xtra="$xtra -d"
 	elif [ $DEBUG -eq 2 ]; then
@@ -287,7 +346,8 @@ send_server()
 	' | ssh -oStrictHostKeyChecking=no \
 		-oBatchMode=yes \
 		-oPasswordAuthentication=no \
-		-i "$SSHKEY" \
+		${SSHKEY:+-i "$SSHKEY"} \
+		-p $SSHPORT \
 		"root@$SERVER" \
 		/usr/local/bin/nsupd $xtra -l -
 
@@ -297,60 +357,73 @@ send_server()
 ############################################################ CMD PROCESSORS
 # Called when command defined in COMMANDS is encountered
 
-# process_add [$args ...]
+# input_add [$cmd ...]
 #
-# Shortcut to `process_update add [$args ...]'
+# Cache input leading up to `send'.
 #
-process_add()
+input_add()
 {
-	process_update add "$@"
+	[ $# -gt 0 ] || return
+	[ "$1" ] || return
+	INPUT="$INPUT${INPUT:+$NL}$*"
 }
 
-# process_answer
+# evaluate_add [$args ...]
 #
-# Processor for the answer command.
+# Shortcut to `evaluate_update add [$args ...]'
 #
-process_answer()
+evaluate_add()
+{
+	evaluate_update add "$@"
+}
+
+# evaluate_answer
+#
+# Evaluator for the answer command.
+#
+evaluate_answer()
 {
 	handle_answer
 }
 
-# process_del [$args ...]
+# evaluate_del [$args ...]
 #
-# Shortcut to `process_update del [$args ...]'
+# Shortcut to `evaluate_update del [$args ...]'
 #
-process_del()
+evaluate_del()
 {
-	process_update delete "$@"
+	evaluate_update delete "$@"
 }
 
-# process_delete [$args ...]
+# evaluate_delete [$args ...]
 #
-# Shortcut to `process_update delete [$args ...]'
+# Shortcut to `evaluate_update delete [$args ...]'
 #
-process_delete()
+evaluate_delete()
 {
-	process_update delete "$@"
+	evaluate_update delete "$@"
 }
 
-# process_send [$args ...]
+# evaluate_send [$args ...]
 #
-# Processor for the send command.
+# Evaluator for the send command.
 #
-process_send()
+evaluate_send()
 {
+	start_update
 	if [ "$LOCAL" ]; then
 		send_local
 	else
 		send_server
 	fi
+	done_update
 }
 
-# process_server $server [$port]
+# evaluate_server $server [$port]
 #
-# Processor for the server command.
+# Evaluator for the server command.
 #
-process_server()
+evaluate_server()
 {
 	if [ "$LOCAL" ]; then
 		echo "cannot reset server in localhost-only mode" >&2
@@ -358,26 +431,39 @@ process_server()
 	fi
 
 	SERVER="$1"
-	PORT="${2:-$DEFAULT_PORT}"
+	SSHPORT="${2:-$SSHPORT}"
 	# Remaining arguments silently ignored
 }
 
-# process_update [$args ...]
+# evaluate_update [$args ...]
 #
-# Processor for the update command.
+# Evaluator for the update command.
 #
-process_update()
+evaluate_update()
 {
-	printf "%s: process_update: Implementation pending\n" "$pgm" >&2
+	xdebug "evaluate_update()"
+
+	case "$1" in
+	[Aa][Dd][Dd])
+		xdebug "update_addordelete()"
+		shift 1 # add
+		input_add update add "$@"
+		;;
+	[Dd][Ee][Ll]|[Dd][Ee][Ll][Ee][Tt][Ee])
+		xdebug "update_addordelete()"
+		shift 1 # del | delete
+		input_add update delete "$@"
+		;;
+	esac
 
 	return $SUCCESS # Non-fatal
 }
 
-# process_zone $zone
+# evaluate_zone $zone
 #
-# Processor for the zone command.
+# Evaluator for the zone command.
 #
-process_zone()
+evaluate_zone()
 {
 	local zone="$1"
 
@@ -390,8 +476,8 @@ process_zone()
 }
 
 ############################################################ CMD HANDLERS
-# Called when handling commands stored by processors
-# NB: Not all processors store commands.
+# Called when handling commands stored by evaluators
+# NB: Not all evaluators store commands.
 
 # handle_update [$args ...]
 #
@@ -445,7 +531,7 @@ while getopts dDhik:lp:t:V$optign$optignx flag; do
 	g|L|o|r|R|u|v|y) : ignored ;;
 	d) [ $DEBUG -lt 1 ] && DEBUG=1 ;;
 	D) [ $DEBUG -lt 2 ] && DEBUG=2 ;;
-	p) PORT="$OPTARG" ;;
+	p) SSHPORT="$OPTARG" ;;
 	P|T) exit $SUCCESS ;; # Not implemented
 	i) INTERACTIVE=1 ;;
 	k) SSHKEY="$OPTARG" ;;
@@ -462,28 +548,22 @@ shift $(( $OPTIND - 1 ))
 #
 # Validate command-line options
 #
-xdebug "setup_system()"
-[ "$LOCAL" -o -e "$SSHKEY" ] ||
+[ "$LOCAL" ] || [ -e "$SSHKEY" ] || [ ! "$SSHKEY" ] ||
 	die "can't read key from %s: file not found\n" "$SSHKEY"
 case "$TIMEOUT" in ""|*[!0-9]*) die "bad timeout '%s'" "$TIMEOUT" ;; esac
-case "$PORT" in ""|*[!0-9]*) die "bad port number '%s'" "$PORT" ;; esac
-xdebug "reset_system()"
+case "$SSHPORT" in ""|*[!0-9]*) die "bad port number '%s'" "$SSHPORT" ;; esac
 
 #
-# Process desired input
+# Process input
 #
-xdebug "user_interaction()"
-if [ $# -gt 0 ]; then
-	FILE="$1"
-	INTERACTIVE=
-	file_process "$FILE"
-elif [ ! "$INTERACTIVE" ]; then
-	file_process /dev/stdin
-else
-	user_process
-fi
+setup_system "$@"
+reset_system
+while user_interaction; do
+	do_next_command $CMD $ARGS || ERROR=1
+done
+cleanup
+shutdown_program
 
-xdebug "shutdown_program()"
 exit $SUCCESS
 
 ################################################################################
