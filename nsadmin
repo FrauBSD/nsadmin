@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2020-11-06 15:50:40 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2020-11-06 16:14:29 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,9 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 5.3
+# 		- Allow multiple admin/critical mail recipients
+# 		  (space-separated)
 # 	Nov 2020: Release 5.2.1
 # 		- Set default view in config and clarify separator
 # 	Nov 2019: Release 5.2
@@ -1313,7 +1316,7 @@ dnsreload()
 		if [ "$critical" ]; then
 			echo "$USER: $( date )" | mail \
 				${domain:+-r "$USER@$domain"} \
-				-s "nsadmin: roll-back failed" "$critical"
+				-s "nsadmin: roll-back failed" $critical
 		fi
 		fatal "roll-back failed ... giving up" # NOTREACHED
 		UPDATE=2
@@ -1506,7 +1509,7 @@ sigquit()
 	log " Finished: $date"
 	if [ "$admin" ]; then
 		cat "$log" | mail ${domain:+-r "$USER@$domain"} \
-			-s "$subj" "$admin"
+			-s "$subj" $admin
 	fi
 
 	# We previously deleted these with sudo in predit()
