@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 5.2.1
+Version: 5.3
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Nov  6 2020 Devin Teske <dteske@fraubsd.org> 5.3-1
+- 0939477 Allow multiple admin/critical mail recipients
 * Fri Nov  6 2020 Devin Teske <dteske@fraubsd.org> 5.2.1-1
 - 616c724 Set default view in config and clarify separator
 * Thu Nov  7 2019 Devin Teske <dteske@fraubsd.org> 5.2-1
