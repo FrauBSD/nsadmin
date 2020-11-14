@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsaxfr package for nsadmin
 License: BSD
-Version: 2.3
+Version: 2.4
 Release: 1
 Buildarch: noarch
 
@@ -77,6 +77,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Nov 13 2020 Devin Teske <dteske@fraubsd.org> 2.4-1
+- dc7a863 Make service name configurable in nsaxfr.conf
 * Thu Oct 31 2019 Devin Teske <dteske@fraubsd.org> 2.3-1
 - Rename AXFR software and use modern terminology
 * Sun Oct 13 2019 Devin Teske <dteske@fraubsd.org> 2.2.2-1
