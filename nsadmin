@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2020-11-13 16:26:54 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2020-11-13 16:53:55 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 5.5
+# 		- Transfer generated includes to secondaries
 # 	Nov 2020: Release 5.4
 # 		- Fix permission issues with transfer method
 # 	Nov 2020: Release 5.3
@@ -316,7 +318,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.4 $'
+VERSION='$Version: 5.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -2280,6 +2282,10 @@ pushzones()
 
 	msg "	Building zone tarball: $( date )"
 	cd "$tmp"
+	for view in $views; do
+		mkdir -p $view/include
+		cp -RPpf "$nameddir"/$view/include/*.conf $view/include/
+	done
 	tar czpf zone.tgz *
 	sudo chown "$binduser:$bindgroup" zone.tgz
 	sudo chmod g+w zone.tgz
