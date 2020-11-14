@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsaxfr,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsaxfr 2020-11-13 16:25:05 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsaxfr 2020-11-13 16:55:28 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -44,6 +44,8 @@
 # 	- User `cm' needs `sudo /usr/local/bin/nsaxfr' without password
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 2.5
+# 		- Miscellaneous fixes
 # 	Nov 2020: Release 2.4
 # 		- Make service name configurable in nsaxfr.conf
 # 	Oct 2019: Release 2.3
@@ -71,7 +73,7 @@ NSAXFR_CONF=nsaxfr.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 2.4 $'
+VERSION='$Version: 2.5 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -194,6 +196,7 @@ msg "Backing up zone files: $( date )"
 for view in $views; do
 	for file in $( find "$view" -type f ); do
 		res=$( echo "$file" | sed -e 's/\(.*\/\)\(.*\)/\1.bak-\2/' )
+		[ -e "$nameddir/$file" ] || continue
 		cp "$nameddir/$file" "$nameddir/$res"
 	done
 done
@@ -203,19 +206,21 @@ done
 #
 msg "Moving files to $nameddir: $( date )"
 for view in $views; do
+	find "$view" -type d -exec mkdir -p "$nameddir/{}" \;
 	find "$view" -type f -exec mv {} "$nameddir/{}" \;
 done
 
 #
 # Reload
 #
-msg "Restarting named:$( date )"
+msg "Restarting named: $( date )"
 printf "\t\t"
 if [ "$SYSTEMD" ]; then
 	systemctl reload $named_service
 else
 	service $named_service reload || pkill -1 named
 fi
+echo
 sleep 1
 if ! pgrep named > /dev/null; then
 	msg "ERROR: named is not running after reload: $( date )"
