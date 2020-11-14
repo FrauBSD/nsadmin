@@ -9,8 +9,8 @@ Group: Applications/FrauBSD
 
 Summary: nsaxfr package for nsadmin
 License: BSD
-Version: 2.4
-Release: 2
+Version: 2.5
+Release: 1
 Buildarch: noarch
 
 URL: https://www.fraubsd.org/nsadmin
@@ -77,6 +77,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Nov 13 2020 Devin Teske <dteske@fraubsd.org> 2.5-1
+- b8642cf Miscellaneous fixes
 * Fri Nov 13 2020 Devin Teske <dteske@fraubsd.org> 2.4-2
 - 9b190a8 Fixup version and amend history
 * Fri Nov 13 2020 Devin Teske <dteske@fraubsd.org> 2.4-1
