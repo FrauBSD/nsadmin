@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2020-11-13 16:53:55 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2020-11-14 11:10:35 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 5.6
+# 		- Allow config of extra options in named.conf(5) includes
 # 	Nov 2020: Release 5.5
 # 		- Transfer generated includes to secondaries
 # 	Nov 2020: Release 5.4
@@ -318,7 +320,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.5 $'
+VERSION='$Version: 5.6 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1225,6 +1227,8 @@ genconf()
 			printf '\ttype master;\n'
 			printf '\tfile "%s";\n' "$file"
 			printf '\tnotify yes;\n'
+			[ ! "$include_zone_extra" ] ||
+				printf "%s\n" "$include_zone_extra"
 			printf '};\n'
 		done; } | sudo tee "$view/include/master.conf" > /dev/null
 
@@ -1253,6 +1257,8 @@ genconf()
 				printf '\ttype master;\n'
 				printf '\tfile "%s";\n' "$file"
 				printf '\tnotify yes;\n'
+				[ ! "$include_zone_extra" ] ||
+					printf "%s\n" "$include_zone_extra"
 				printf '};\n'
 			fi
 			if grep -q "$ip6arpa" "$file"; then
@@ -1260,6 +1266,8 @@ genconf()
 				printf '\ttype master;\n'
 				printf '\tfile "%s";\n' "$file"
 				printf '\tnotify yes;\n'
+				[ ! "$include_zone_extra" ] ||
+					printf "%s\n" "$include_zone_extra"
 				printf '};\n'
 			fi
 		done; } | sudo tee "$view/include/rev.conf" > /dev/null
