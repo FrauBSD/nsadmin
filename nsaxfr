@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsaxfr,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsaxfr 2020-11-13 16:01:53 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsaxfr 2020-11-13 16:25:05 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -44,6 +44,8 @@
 # 	- User `cm' needs `sudo /usr/local/bin/nsaxfr' without password
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 2.4
+# 		- Make service name configurable in nsaxfr.conf
 # 	Oct 2019: Release 2.3
 # 		- Rename AXFR software and use modern terminology
 # 	Oct 2019: Release 2.2.2
@@ -69,7 +71,7 @@ NSAXFR_CONF=nsaxfr.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 2.3 $'
+VERSION='$Version: 2.4 $'
 
 pgm="${0##*/}" # Program basename
 
