@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2020-11-14 11:10:35 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2020-11-17 15:25:08 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,10 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 6.0
+# 		- Add support for importing nsupdate changes
+# 		- Freeze zone during edit
+# 		- Prevent configuring non-text journal files in genconf()
 # 	Nov 2020: Release 5.6
 # 		- Allow config of extra options in named.conf(5) includes
 # 	Nov 2020: Release 5.5
@@ -320,7 +324,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.6 $'
+VERSION='$Version: 6.0-beta-1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -361,6 +365,7 @@ COMMITMSG=				# User-provided commit message
 CHANGES=				# Have changes been made?
 FAILFILE=				# File that failed zonetest()
 FAILTYPE=				# Type of file that failed
+FROZENZONES=				# Zones being edited (frozen by rndc)
 MVJNL=					# Move journal for commit
 MVJNLREV=				# Reverse move journal for interrupt
 NEWZONES=				# Newly created zones
@@ -1222,6 +1227,16 @@ genconf()
 				warn "$file exists"
 				continue ;;
 			esac
+			if filetype=$( file -b "$file" 2>&1 ); then
+				case "$filetype" in
+				*text*) : ok ;;
+				*) warn "$file unknown format"
+				   continue
+				esac
+			else
+				warn "$file unknown type ($filetype)"
+				continue
+			fi
 			zone="${file##*/}"
 			printf 'zone "%s" in {\n' "$zone"
 			printf '\ttype master;\n'
@@ -1251,6 +1266,16 @@ genconf()
 				warn "$file exists"
 				continue ;;
 			esac
+			if filetype=$( file -b "$file" 2>&1 ); then
+				case "$filetype" in
+				*text*) : ok ;;
+				*) warn "$file unknown format"
+				   continue
+				esac
+			else
+				warn "$file unknown type ($filetype)"
+				continue
+			fi
 			zone="${file##*/}"
 			if grep -q "$ip4arpa" "$file"; then
 				printf 'zone "%s.in-addr.arpa" in {\n' "$zone"
@@ -1392,7 +1417,11 @@ log()
 	done
 	shift $(( $OPTIND - 1 ))
 
-	printf "%s\n%s\n%s\n\n" "$logsep" "$*" "$logsep" >> "$log"
+	if [ "$logsep" ]; then
+		printf "%s\n%s\n%s\n\n" "$logsep" "$*" "$logsep" >> "$log"
+	else
+		printf "%s\n" "$*" >> "$log"
+	fi
 }
 
 # msg $text ...
@@ -1436,6 +1465,7 @@ sigquit()
 	local res
 	local skip
 	local subj
+	local zone
 
 	stty echo
 	echo
@@ -1514,6 +1544,9 @@ sigquit()
 			esac
 		done
 	fi
+
+	# Unfreeze/thaw zones
+	thaw
 
 	date=$( date )
 	sep -n -c 2 " Finished: $date"
@@ -1648,6 +1681,7 @@ zonemenu()
 
 		if [ "$EDITMODE" ]; then
 			cp "$zone" ".bak-$zone" > /dev/null 2>&1
+			freeze "$zone"
 			editmaster "$zone"
 		elif [ "$SYNC" ]; then
 			if [ "$UPDZONES" ]; then
@@ -1663,6 +1697,55 @@ zonemenu()
 			colorize "$zone" | ${PAGER:-less -R}
 		fi
 	done
+}
+
+# thaw
+#
+# Thaw zone (allow nsupdate) previously frozen with freeze().
+#
+thaw()
+{
+	local err
+	local zone
+
+	for zone in $FROZENZONES; do
+		log -n "Thawing: $zone"
+		err=$( rndc thaw "$zone" 2>&1 ) || log -n "$err"
+	done
+
+	FROZENZONES=
+}
+
+# freeze zone ...
+#
+# Freeze one or more zones (prevents nsupdate) while changes are made.
+#
+freeze()
+{
+	local changes=
+	local err f found zone
+	local frozen="$FROZENZONES"
+
+	for zone in $*; do
+		found=
+		for f in $FROZENZONES; do
+			[ "$f" = "$zone" ] || continue
+			found=1
+			break
+		done
+		[ ! "$found" ] || continue
+		log -n "Freezing: $zone"
+		if ! err=$( rndc freeze "$zone" 2>&1 ); then
+			log -n "$err"
+			continue
+		fi
+		frozen="$frozen${frozen:+ }$zone"
+		changes=1
+	done
+
+	[ "$changes" ] || return $SUCCESS # Already frozen
+
+	FROZENZONES="$frozen" # current
 }
 
 # pause
