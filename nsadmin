@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2020-11-18 10:30:32 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2020-11-18 11:30:16 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 5.6.3
+# 		- Fix a typo
 # 	Nov 2020: Release 5.6.2
 # 		- Prevent editing zone if journal exists
 # 	Nov 2020: Release 5.6.1
@@ -324,7 +326,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.6.2 $'
+VERSION='$Version: 5.6.3 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -2374,7 +2376,7 @@ pushzones()
 	for host in $TRANSFER; do
 #?		clear # Testing -- Parker
 		sep "# nsadmin: Zone Push"
-		msg " Executing remove push to $host: $( date )"
+		msg " Executing remote push to $host: $( date )"
 
 		msg "	Copying zone tarball to $host: $( date )"
 		cmd="scp $scpopts $tmp/zone.tgz $user@$host:tmp"
