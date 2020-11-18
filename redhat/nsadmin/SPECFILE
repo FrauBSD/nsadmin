@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 5.6.2
+Version: 5.6.3
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Wed Nov 18 2020 Devin Teske <dteske@fraubsd.org> 5.6.3-1
+- 4f38c39 Fix a typo
 * Wed Nov 18 2020 Devin Teske <dteske@fraubsd.org> 5.6.2-1
 - b7bcdcc Prevent editing zone if journal exists
 * Tue Nov 17 2020 Devin Teske <dteske@fraubsd.org> 5.6.1-1
