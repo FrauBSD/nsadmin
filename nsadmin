@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2020-11-17 18:55:24 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2020-11-18 10:30:32 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -59,6 +59,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Nov 2020: Release 5.6.2
+# 		- Prevent editing zone if journal exists
 # 	Nov 2020: Release 5.6.1
 # 		- Prevent configuring non-text journal files in genconf()
 # 	Nov 2020: Release 5.6
@@ -322,7 +324,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.6.1 $'
+VERSION='$Version: 5.6.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1582,7 +1584,9 @@ sigquit()
 zonemenu()
 {
 	local zone rest
+	local fmt
 	local from to
+	local view journal journals
 
 	while :; do
 		zonelist
@@ -1673,8 +1677,48 @@ zonemenu()
 		fi
 
 		if [ "$EDITMODE" ]; then
+			journals=
+			for view in ${views:-nsadmin}; do
+				journal="$nameddir/$view/master/$zone.jnl"
+				[ -e "$journal" ] || continue
+				journals="$journals $journal"
+			done
+			journals="${journals# }"
+			if [ "$journals" ]; then
+				printf "   Journals exist for %s:\n\n" "$zone"
+				for journal in $journals; do
+					printf "   \t%s\n" "$journal"
+				done
+				printf "\n   To edit, first:\n\n"
+				printf "\t# Quit nsadmin\n"
+				for journal in $journals; do
+					view="${journal#"$nameddir/"}"
+					view="${view%%/*}"
+					fmt="\trndc sync -clean %s\n"
+					case "$view" in
+					nsadmin) printf "$fmt" "$zone" ;;
+					*) printf "$fmt" "$zone IN $view"
+					esac
+					printf "\tsudo vimdiff {%s,%s}/%s\n" \
+						"$nsadmindir" \
+						"$nameddir/$view/master" \
+						"$zone"
+					printf "\tnsadmin -sl %s\n" "$zone"
+				done
+				printf "\n"
+				printf "\tNOTE: Use %s (%s)\n" \
+					"\`:w!' in vimdiff to force write" \
+					"files are read-only for VCS"
+				printf "\tWARNING: %s unless %s\n" \
+					"Changes will be lost after \`sync'" \
+					"you merge them to"
+				printf "\t         %s (%s) %s\n" \
+					"$nsadmindir" "\`vimdiff' above" \
+					"and run \`nsadmin -s...'"
+				pause
+				continue # Back to menu
+			fi
 			cp "$zone" ".bak-$zone" > /dev/null 2>&1
-			freeze "$zone"
 			editmaster "$zone"
 		elif [ "$SYNC" ]; then
 			if [ "$UPDZONES" ]; then
