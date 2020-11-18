@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 5.6
+Version: 5.6.1
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Nov 17 2020 Devin Teske <dteske@fraubsd.org> 5.6.1-1
+- 538b7b8 Prevent configuring non-text journal files in genconf()
 * Sat Nov 14 2020 Devin Teske <dteske@fraubsd.org> 5.6-1
 - 5358bfa Allow config of extra options in named.conf(5) includes
 * Fri Nov 13 2020 Devin Teske <dteske@fraubsd.org> 5.5-1
