@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsaxfr package for nsadmin
 License: BSD
-Version: 2.5.1
+Version: 2.5.2
 Release: 1
 Buildarch: noarch
 
@@ -77,6 +77,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Wed Nov 18 2020 Devin Teske <dteske@fraubsd.org> 2.5.2-1
+- 028b611 Make service reload arguments configurable in nsaxfr.conf
 * Mon Nov 16 2020 Devin Teske <dteske@fraubsd.org> 2.5.1-1
 - 935df52 Fix default views in nsaxfr.conf
 * Fri Nov 13 2020 Devin Teske <dteske@fraubsd.org> 2.5-1
