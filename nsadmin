@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2021-01-20 16:34:12 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2021-01-20 16:37:55 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Jan 2021: Release 5.6.5
+# 		- Fix permissions even after no changes detected in edit
 # 	Jan 2021: Release 5.6.4
 # 		- Ignore emacs/vim recovery files in $nsadmindir
 # 	Nov 2020: Release 5.6.3.1
@@ -331,7 +333,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.6.3.1 $'
+VERSION='$Version: 5.6.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1578,7 +1580,12 @@ sigquit()
 			skip=1
 			break
 		done
-		[ "$skip" ] || chmod a-w "$file" > /dev/null 2>&1
+		if [ ! "$skip" ]; then
+			chmod a-w "$file" > /dev/null 2>&1
+			rcsfile="$nsadmindir/RCS/$file,v"
+			chown "$binduser:$bindgroup" "$file" "$rcsfile" \
+				> /dev/null 2>&1
+		fi
 	done
 
 	cd - > /dev/null 2>&1
