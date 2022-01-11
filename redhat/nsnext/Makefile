@@ -161,7 +161,7 @@ distclean: clean
 # Git Maintenance Targets
 #
 
-.PHONY: check_tag tag forcetag taglist
+.PHONY: check_tag tag forcetag untag unpublish taglist
 
 check_tag:
 	@[ "$(TAG)" ] || $(PKGCENTER)/Mk/die \
@@ -173,6 +173,12 @@ tag: check_tag
 forcetag: check_tag
 	@$(ENVIRON) $(PKGCENTER)/Mk/git_tag -f "$(TAG)"
 
+untag: check_tag
+	@$(ENVIRON) $(PKGCENTER)/Mk/git_tag -d "$(TAG)"
+
+unpublish: check_tag
+	@$(ENVIRON) $(PKGCENTER)/Mk/git_tag -u "$(TAG)"
+	
 taglist:
 	@$(ENVIRON) $(PKGCENTER)/Mk/git_tag -l "$(TAGNAME)-*"
 
@@ -180,7 +186,7 @@ taglist:
 # Git Addition Targets
 #
 
-.PHONY: import commit pull
+.PHONY: import commit pull push autoimport
 
 import:
 	@$(ENVIRON) $(PKGCENTER)/Mk/git_import
@@ -190,6 +196,9 @@ autoimport:
 
 commit:
 	@$(GIT) commit
+
+push:
+	@$(GIT) push origin $$( git branch | awk '$$1=="*"{print $$2}' ) --tags
 
 pull:
 	@$(GIT) pull

@@ -4,8 +4,8 @@
 ############################################################ IDENT(1)
 #
 # $Title: Script for tagging git repositories from Makefiles $
-# $Copyright: 1999-2017 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/Mk/git_tag 2019-10-10 13:22:03 -0700 freebsdfrau $
+# $Copyright: 1999-2022 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/Mk/git_tag 2022-01-11 10:09:38 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -38,8 +38,10 @@ FAILURE=1
 #
 # Command-line options
 #
+DELETE=		# -d
 FORCE=		# -f
 LIST=		# -l
+UNPUSH=		# -u
 
 ############################################################ FUNCTIONS
 
@@ -72,10 +74,12 @@ fi
 #
 # Process command-line arguments
 #
-while getopts fl flag; do
+while getopts dflu flag; do
 	case "$flag" in
+	d) DELETE=1 ;;
 	f) FORCE=1 ;;
 	l) LIST=1 ;;
+	u) UNPUSH=1 ;;
 	esac
 done
 shift $(( $OPTIND - 1 ))
@@ -91,6 +95,25 @@ shift $(( $OPTIND - 1 ))
 #
 if [ "$LIST" ]; then
 	eval2 $GIT tag -l "$@"
+	exit
+fi
+
+#
+# Process `-d' flag
+#
+if [ "$DELETE" ]; then
+	eval2 $GIT tag -d "$@"
+	rv=$?
+	[ "$UNPUSH" ] || exit $rv
+fi
+
+#
+# Process `-u' flag
+#
+if [ "$UNPUSH" ]; then
+	for tag in "$@"; do
+		eval2 $GIT push origin ":refs/tags/$tag"
+	done
 	exit
 fi
 
