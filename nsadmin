@@ -1,7 +1,7 @@
 #!/bin/sh
 #-
 # Copyright (c) 2006-2013 Parker Lee Ranney TTEE
-# Copyright (c) 2017-2021 Devin Teske <dteske@FreeBSD.org>
+# Copyright (c) 2017-2022 Devin Teske <dteske@FreeBSD.org>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 #
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
-# $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2021-01-20 16:37:55 -0800 freebsdfrau $
+# $Copyright: 2017-2022 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsadmin 2022-01-11 09:55:37 -0800 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Jan 2022: Release 5.6.6
+# 		- Allow yes/no (instead of just y/n) for chance-acceptance
 # 	Jan 2021: Release 5.6.5
 # 		- Fix permissions even after no changes detected in edit
 # 	Jan 2021: Release 5.6.4
@@ -333,7 +335,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.6.5 $'
+VERSION='$Version: 5.6.6 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -2546,10 +2548,12 @@ vprompt()
 	echo
 
 	case "$ans" in
-	[nN])	msg "$USER canceled changes: $( date )"
+	[nN]|[Nn][Oo])
+		msg "$USER canceled changes: $( date )"
 		cp ".bak-$file" "$file" > /dev/null 2>&1
 		;;
-	[yY])	echo
+	[yY]|[Yy][Ee][Ss])
+		echo
 		msg "$USER accepted changes: $( date )"
 		getsubnets "$file"
 		UPDATE=1 # First stage of dns updates
