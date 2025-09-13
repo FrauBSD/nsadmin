@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 5.6.6
+Version: 5.7
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Fri Sep 13 2024 Devin Teske <dteske@fraubsd.org> 5.7-1
+- e3ea649 Fix overlapping subnet dependency detection
 * Tue Jan 11 2022 Devin Teske <dteske@fraubsd.org> 5.6.6-1
 - 3886895 Allow yes/no not just y/n for change review prompt
 * Wed Jan 20 2021 Devin Teske <dteske@fraubsd.org> 5.6.5-1
