@@ -60,6 +60,11 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 5.7.1
+# 		- Fix subnet collection in edit mode to prevent PTR record loss
+# 		- Optimize reverse DNS regeneration
+# 	Sep 2025: Release 5.7
+# 		- Add overlapping subnet dependency detection
 # 	Jan 2022: Release 5.6.6
 # 		- Allow yes/no (instead of just y/n) for chance-acceptance
 # 	Jan 2021: Release 5.6.5
@@ -335,7 +340,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.7 $'
+VERSION='$Version: 5.7.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1029,22 +1034,14 @@ genmaster()
 	fi
 
 	#
-	# Generate a list of all subnets in the master file
-	# Note: Done after dependency detection to include dependent zones
+	# Generate a list of subnets that need reverse DNS regeneration
+	# Note: Only include subnets from originally edited zones, not dependencies
 	#
-	if [ "$SYNC" -o "$MVJNL" ]; then
-		for subnet in $(
-			for file in $UPDZONES; do
-				zone2rev -l "$file"
-			done | sort -u
-		); do
-			# Only insert subnet if not existing in $SUBNETS
-			echo "$SUBNETS" | grep -q "\\<$(
-				echo "$subnet" | sed -e 's/\./\\&/g'
-			)$subnet\\>" || SUBNETS="$SUBNETS $subnet"
-		done
-		SUBNETS="${SUBNETS# }"
-	fi
+	for subnet in $updsubnets; do
+		# Only insert subnet if not existing in $SUBNETS
+		echo " $SUBNETS " | grep -qF " $subnet " || SUBNETS="$SUBNETS $subnet"
+	done
+	SUBNETS="${SUBNETS# }"
 
 	#
 	# Loop through the zone file generation until each error is
