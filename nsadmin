@@ -1,7 +1,7 @@
 #!/bin/sh
 #-
 # Copyright (c) 2006-2013 Parker Lee Ranney TTEE
-# Copyright (c) 2017-2022 Devin Teske <dteske@FreeBSD.org>
+# Copyright (c) 2017-2025 Devin Teske <dteske@FreeBSD.org>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2022-01-11 09:55:37 -0800 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-12 17:59:27 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -335,7 +335,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.6.6 $'
+VERSION='$Version: 5.7 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -951,9 +951,15 @@ clear()
 #
 genmaster()
 {
+	local excl
 	local file
 	local ignored
+	local skip
 	local subnet
+	local updsubnet
+	local updsubnets
+	local zone
+	local zones2=
 
 	#
 	# Save the master files that have changes to make sure they
@@ -962,7 +968,69 @@ genmaster()
 	echo "$UPDZONES" > "$nsadmindir/.updzones"
 
 	#
+	# Detect overlapping subnet dependencies:
+	# Find all zones that contain IP addresses in the same subnets as the
+	# zones being updated. This ensures that when zone A is edited and
+	# contains IP 1.2.3.4, zone B with IP 1.2.3.5 (same /24 subnet) will
+	# also be included in the compilation to prevent PTR record loss.
+	#
+	if [ "$UPDZONES" ]; then
+		msg "Detecting overlapping subnet dependencies..."
+
+		# Get all subnets from zones being updated
+		updsubnets=$(
+			for file in $UPDZONES; do
+				[ -f "$file" ] && zone2rev -l "$file"
+			done | sort -u
+		)
+
+		if [ "$updsubnets" ]; then
+			# Find all zones that have IPs in these subnets
+			for zone in [a-z0-9]*; do
+				[ -f "$zone" ] || continue
+
+				# Skip if zone is already in UPDZONES
+				echo " $UPDZONES " | grep -qF " $zone " &&
+					continue
+
+				# Skip excluded zones
+				skip=
+				for excl in $exclude; do
+					[ "$zone" = "$excl" ] || continue
+					skip=1
+					break
+				done
+				[ "$skip" ] && continue
+
+				# Check if zone has IPs in any affected subnet
+				for subnet in $( zone2rev -l "$zone" ); do
+					for updsubnet in $updsubnets; do
+						[ "$subnet" = "$updsubnet" ] ||
+							continue
+						# Found overlapping subnet
+						# Add zone as dependency
+						zones2="$zones2 $zone"
+						break 2 # break both loops
+					done
+				done
+			done
+			zones2="${zones2# }"
+
+			if [ "$zones2" ]; then
+				msg "Found overlapping subnets: $zones2"
+				# Add dependent zones to the update list
+				UPDZONES="$UPDZONES $zones2"
+				# Update the saved zones list
+				echo "$UPDZONES" > "$nsadmindir/.updzones"
+			else
+				msg "No overlapping subnet dependencies found."
+			fi
+		fi
+	fi
+
+	#
 	# Generate a list of all subnets in the master file
+	# Note: Done after dependency detection to include dependent zones
 	#
 	if [ "$SYNC" -o "$MVJNL" ]; then
 		for subnet in $(
