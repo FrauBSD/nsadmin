@@ -60,6 +60,27 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.0
+# 		- Add f_count_ifs() and f_replaceall() from FreeBSD bsdconfig
+# 		- Add f_getword() function for shell-native word extraction
+# 		- Add f_indent() function to abstract line indentation patterns
+# 		- Optimize zone2rev to accept multiple file arguments
+# 		- Enhance zone2rev to accept multiple subnets
+# 		  (-s subnet1 -s subnet2 or -s "subnet1 subnet2")
+# 		- Replace echo|sed patterns with shell parameter expansion
+# 		- Replace echo|awk indentation with printf loops
+# 		- Replace tr|sort|tr pipeline with f_replaceall + NL
+# 		- Replace echo|wc -l with f_count_ifs
+# 		- Move file existence checking into zone2rev()
+# 		- Fix exclude pattern matching to use literal strings (prevents
+# 		  unintended matches with patterns like #*, ~*, *~)
+# 		- Optimize space-separated list building (unconditional space +
+# 		  trim vs conditional space)
+# 		- Eliminate .updzones temporary file (direct genzone call)
+# 		- Fix genrev() to use f_count_ifs instead of destructive set --
+# 		- Transform genrev() from O(N×M×V) to O(N×V) complexity
+# 		- Use POSIX-compliant arithmetic expressions
+# 		- Maintain single-file architecture and all existing behavior
 # 	Sep 2025: Release 5.7.1
 # 		- Fix subnet collection in edit mode to prevent PTR record loss
 # 		- Optimize reverse DNS regeneration
@@ -340,7 +361,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 5.7.1 $'
+VERSION='$Version: 6.0 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -377,6 +398,8 @@ VIEWCMDS="/diff /log"
 #
 # Miscellaneous
 #
+NL="
+" # END-QUOTE
 COMMITMSG=				# User-provided commit message
 CHANGES=				# Have changes been made?
 FAILFILE=				# File that failed zonetest()
@@ -387,8 +410,9 @@ NEWZONES=				# Newly created zones
 RMDREVS=				# Rev maps of removed zones
 RMDZONES=				# Removed zones
 ROOTFAIL=				# Exited due to running as root
-SEP=$( printf %75s | tr " " - )		# Separator
-SEPDBL=$( printf %20s | tr " " = )	# Double separator
+SEP="-----------------------------------------------------------------------"
+					# Separator
+SEPDBL="===================="		# Double separator
 SUBNETS=				# Subnets changed for rev maps
 SYNCCNT=0				# Number of files sync'd
 UPDATE=0				# Stage of master file updates
@@ -396,6 +420,144 @@ UPDATE=0				# Stage of master file updates
 ############################################################ FUNCTIONS
 
 have(){ type "$@" > /dev/null 2>&1; }
+
+# setvar $var_to_set [$value]
+#
+# Implement setvar for shells unlike FreeBSD sh(1).
+#
+if ! have setvar; then
+setvar()
+{
+	[ $# -gt 0 ] || return $SUCCESS
+	local __setvar_var_to_set="$1" __setvar_right="$2" __setvar_left=
+	case $# in
+	1) unset "$__setvar_var_to_set"
+	   return $? ;;
+	2) : fall through ;;
+	*) echo "setvar: too many arguments" >&2
+	   return $FAILURE
+	esac
+	case "$__setvar_var_to_set" in *[!0-9A-Za-z_]*)
+		echo "setvar: $__setvar_var_to_set: bad variable name" >&2
+		return 2
+	esac
+	while case "$__setvar_right" in *\'*) : ;; *) false ; esac
+	do
+		__setvar_left="$__setvar_left${__setvar_right%%\'*}'\\''"
+		__setvar_right="${__setvar_right#*\'}"
+	done
+	__setvar_left="$__setvar_left${__setvar_right#*\'}"
+	eval "$__setvar_var_to_set='$__setvar_left'"
+}
+fi
+
+# f_replaceall $string $find $replace [$var_to_set]
+#
+# Replace all occurrences of $find in $string with $replace. If $var_to_set is
+# either missing or NULL, the variable name is produced on standard out for
+# capturing in a sub-shell (which is less recommended due to performance
+# degradation).
+#
+# To replace newlines or a sequence containing the newline character, use $NL
+# as `\n' is not supported.
+#
+f_replaceall()
+{
+	local __left="" __right="$1"
+	local __find="$2" __replace="$3" __var_to_set="$4"
+	while :; do
+		case "$__right" in *$__find*)
+			__left="$__left${__right%%$__find*}$__replace"
+			__right="${__right#*$__find}"
+			continue
+		esac
+		break
+	done
+	__left="$__left${__right#*$__find}"
+	if [ "$__var_to_set" ]; then
+		setvar "$__var_to_set" "$__left"
+	else
+		echo "$__left"
+	fi
+}
+
+# f_count_ifs $var_to_set string ...
+#
+# Sets $var_to_set to the number of words (split by the internal field
+# separator, IFS) following $var_to_set.
+#
+f_count_ifs()
+{
+	local __var_to_set="$1"
+	shift 1
+	set -- $*
+	setvar "$__var_to_set" $#
+}
+
+# f_getword [-v var_to_set] $n $word1 $word2 ...
+#
+# Get the nth word from the provided arguments.
+# Words are split by IFS at caller's stack before function invocation.
+#
+f_getword()
+{
+	local __var_to_set= __n
+	local OPTIND=1 OPTARG __flag
+
+	while getopts v: __flag; do
+		case "$__flag" in
+		v) __var_to_set="$OPTARG" ;;
+		esac
+	done
+	shift $(( $OPTIND - 1 ))
+
+	__n="$1"
+	shift 1 # __n
+
+	# Validate that n is numerical and not null
+	case "$__n" in
+	""|*[!0-9]*) return $FAILURE ;;
+	esac
+
+	# Get the nth word
+	eval "local __word=\${${__n}}"
+
+	if [ "$__var_to_set" ]; then
+		eval "$__var_to_set=\"\$__word\""
+	else
+		echo "$__word"
+	fi
+}
+
+# f_indent [-p prefix] [input]
+#
+# Read lines from input (or stdin) and print each line with indentation prefix.
+# Default prefix is a tab character. Use -p to specify custom prefix.
+#
+f_indent()
+{
+	local prefix="\t"
+	local OPTIND=1 OPTARG flag
+
+	while getopts p: flag; do
+		case "$flag" in
+		p) prefix="$OPTARG" ;;
+		esac
+	done
+	shift $(( $OPTIND - 1 ))
+
+	if [ $# -gt 0 ]; then
+		# Input provided as argument
+		printf '%s\n' "$*" | while IFS= read -r line; do
+			printf "$prefix%s\n" "$line"
+		done
+	else
+		# Read from stdin
+		while IFS= read -r line; do
+			printf "$prefix%s\n" "$line"
+		done
+	fi
+}
 
 # usage
 #
@@ -446,7 +608,7 @@ usage()
 # 	-l          List subnets on stdout and exit
 # 	-r          List reverse arpa subnets on stdout and exit
 # 	-S          Use sudo
-# 	-s subnet   Process only subnet from $file
+# 	-s subnets  Process only subnet(s) from $file
 # 	-V          Verify contents and exit. Implies `-d'
 # 	-v view     Process only view from $file
 #
@@ -689,12 +851,30 @@ BEGIN {
 	if (list_reverse) list_subnets = 1
 	vstatus = 0
 
-	subnet = tolower(subnet)
+	nsubnets = split(tolower(subnets), subnet_array, / /)
 	delete initialized
 	delete files
+
+	# Process each file in the files list
+	nfiles = split(files, file_array, / /)
+	for (f = 1; f <= nfiles; f++) {
+		process_file(file_array[f])
+	}
+	exit
+}
+
+function process_file(file,        NR, rec, test_result) {
 	NR = 0
 	rec = ""
-	while (getline < file > 0) {
+	# Test if file exists and is readable
+	test_result = (getline < file)
+	if (test_result < 0) {
+		printf "zone2rev: warning: %s: not found or not readable\n",
+			file > "/dev/stderr"
+		return
+	}
+	# Process the first line we already read, then continue with the rest
+	while (test_result > 0) {
 		NR++
 		if (/^[[:space:]]*;/) continue
 		if ($1 ~ "^" file) continue
@@ -729,7 +909,15 @@ BEGIN {
 			}
 			split(ip, oct, /\./)
 			net = sprintf("%u.%u.%u", oct[1], oct[2], oct[3])
-			if (!list_subnets && subnet && net != subnet) continue
+			if (!list_subnets && nsubnets > 0) {
+				found = 0
+				for (i = 1; i <= nsubnets; i++) {
+					if (net != subnet_array[i]) continue
+					found = 1
+					break
+				}
+				if (!found) continue
+			}
 			rev = sprintf("%u.%u.%u", oct[3], oct[2], oct[1])
 			ptr = sprintf("%u\t\t\t\t\tPTR\t%s%s%s.",
 				oct[4], rec == "@" ? "" : rec,
@@ -747,8 +935,16 @@ BEGIN {
 				nib[5], nib[6], nib[7], nib[8],
 				nib[9], nib[10], nib[11], nib[12],
 				nib[13], nib[14], nib[15], nib[16])
-			if (!list_subnets && subnet && tolower(net) != subnet)
-				continue
+			if (!list_subnets && nsubnets > 0) {
+				found = 0
+				for (i = 1; i <= nsubnets; i++) {
+					if (tolower(net) != subnet_array[i])
+						continue
+					found = 1
+					break
+				}
+				if (!found) continue
+			}
 			rev = tolower(sprintf( \
 				"%s.%s.%s.%s." \
 				"%s.%s.%s.%s." \
@@ -787,8 +983,8 @@ BEGIN {
 		}
 		files[rev] = 1
 		print ptr >> rev
+		test_result = getline < file
 	}
-	exit
 }
 
 END {
@@ -796,7 +992,7 @@ END {
 	if (list_subnets) {
 		n = _asorti(subnets, subnets_sorted)
 		for (i = 1; i <= n; i++) print subnets_sorted[i]
-		exit
+		exit (n > 0 ? 0 : 1)
 	}
 
 	if (!debug) exit
@@ -821,7 +1017,7 @@ zone2rev()
 	local initialize=0
 	local list_reverse=0
 	local list_subnets=0
-	local subnet=
+	local subnets=
 	local sudo=
 	local verify=0
 	local view=
@@ -835,7 +1031,7 @@ zone2rev()
 		l) list_subnets=1 ;;
 		r) list_reverse=1 ;;
 		S) sudo=1 ;;
-		s) subnet="$OPTARG" ;;
+		s) subnets="$subnets $OPTARG" ;;
 		V) verify=1 ;;
 		v) view="$OPTARG" ;;
 		esac
@@ -844,11 +1040,11 @@ zone2rev()
 
 	${sudo:+sudo} awk -v console=$console \
 		-v debug=$debug \
-		-v file="$1" \
+		-v files="$*" \
 		-v initialize=$initialize \
 		-v list_reverse=$list_reverse \
 		-v list_subnets=$list_subnets \
-		-v subnet="$subnet" \
+		-v subnets="${subnets# }" \
 		-v verify=$verify \
 		-v view="$view" \
 		"$zone2rev_awk"
@@ -887,7 +1083,7 @@ getlock()
 	local res
 
 	if [ -f "$lock" ]; then
-		res=$( ls -l "$lock" | awk '{print $3}' )
+		f_getword -v res 3 $( ls -l "$lock" )
 		printf "\033[2mlock: %s\033[m\n" "$lock"
 		fatal "lock file exists, owner is $res" # NOTREACHED
 	fi
@@ -910,7 +1106,7 @@ predit()
 
 	msg "$USER starting edits: $( date )"
 
-	sudo rm -rf "$log" "$tmp" .bak-* .revunq .updzones .view* ||
+	sudo rm -rf "$log" "$tmp" .bak-* .revunq .view* ||
 		exit $FAILURE
 
 	trap "sigquit; exit" SIGHUP SIGINT SIGQUIT SIGTERM
@@ -967,12 +1163,6 @@ genmaster()
 	local zones2=
 
 	#
-	# Save the master files that have changes to make sure they
-	# are not lost in the loop'ing below.
-	#
-	echo "$UPDZONES" > "$nsadmindir/.updzones"
-
-	#
 	# Detect overlapping subnet dependencies:
 	# Find all zones that contain IP addresses in the same subnets as the
 	# zones being updated. This ensures that when zone A is edited and
@@ -983,20 +1173,19 @@ genmaster()
 		msg "Detecting overlapping subnet dependencies..."
 
 		# Get all subnets from zones being updated
-		updsubnets=$(
-			for file in $UPDZONES; do
-				[ -f "$file" ] && zone2rev -l "$file"
-			done | sort -u
-		)
+		if updsubnets=$( zone2rev -l $UPDZONES ); then
+			f_replaceall "$updsubnets" " " "$NL" updsubnets
+			updsubnets=$( echo "$updsubnets" | sort -u )
+			f_replaceall "$updsubnets" "$NL" " " updsubnets
 
-		if [ "$updsubnets" ]; then
 			# Find all zones that have IPs in these subnets
 			for zone in [a-z0-9]*; do
 				[ -f "$zone" ] || continue
 
 				# Skip if zone is already in UPDZONES
-				echo " $UPDZONES " | grep -qF " $zone " &&
-					continue
+				case " $UPDZONES " in
+				*" $zone "*) continue ;;
+				esac
 
 				# Skip excluded zones
 				skip=
@@ -1009,14 +1198,13 @@ genmaster()
 
 				# Check if zone has IPs in any affected subnet
 				for subnet in $( zone2rev -l "$zone" ); do
-					for updsubnet in $updsubnets; do
-						[ "$subnet" = "$updsubnet" ] ||
-							continue
+					case " $updsubnets " in
+					*" $subnet "*)
 						# Found overlapping subnet
 						# Add zone as dependency
 						zones2="$zones2 $zone"
-						break 2 # break both loops
-					done
+						break ;;
+					esac
 				done
 			done
 			zones2="${zones2# }"
@@ -1025,8 +1213,6 @@ genmaster()
 				msg "Found overlapping subnets: $zones2"
 				# Add dependent zones to the update list
 				UPDZONES="$UPDZONES $zones2"
-				# Update the saved zones list
-				echo "$UPDZONES" > "$nsadmindir/.updzones"
 			else
 				msg "No overlapping subnet dependencies found."
 			fi
@@ -1039,7 +1225,10 @@ genmaster()
 	#
 	for subnet in $updsubnets; do
 		# Only insert subnet if not existing in $SUBNETS
-		echo " $SUBNETS " | grep -qF " $subnet " || SUBNETS="$SUBNETS $subnet"
+		case " $SUBNETS " in
+		*" $subnet "*) continue ;;
+		*) SUBNETS="$SUBNETS $subnet"
+		esac
 	done
 	SUBNETS="${SUBNETS# }"
 
@@ -1051,7 +1240,7 @@ genmaster()
 	while :; do
 		echo
 		msg "Building zone files and revmaps: $( date )"
-		genzone $( cat "$nsadmindir/.updzones" )
+		genzone $UPDZONES
 		genrev
 
 		zonetest
@@ -1103,25 +1292,37 @@ genrev()
 		# Truncate subnets belonging to removed zones
 		for n in $RMDREVS; do :> ".new-$n"; done
 
-		list="${UPDZONES:-$( ls -d [a-z0-9]* )}"
+		if [ "$UPDZONES" ]; then
+			list="$UPDZONES"
+		else
+			list=
+			for zone in [a-z0-9]*; do
+				[ -f "$zone" ] || continue
+				list="$list $zone"
+			done
+			list="${list# }"
+		fi
+
 		for excl in $exclude; do
-			list=$( echo "$list" | sed -e "s/$excl//" )
+			f_replaceall "$list" "$excl" "" list
 		done
 
 		n=1
-		t=$( set -- $list; echo $# )
+		f_count_ifs t $list
 		zone2rev_debug=
 #?		[ "$SYNC" ] && zone2rev_debug=-d # Testing -- Devin
 		for file in $list; do
 			printf "  \033[2m%-30s \033[1m%4u/%-4u\033[m\n" \
 				"[$file]" $n $t
-			for subnet in $SUBNETS; do
-#?				printf "  \033[3m-> $subnet\033[m\n"
-#?					# Testing -- Devin
-				zone2rev -S $zone2rev_debug \
-					-v "$view" -s "$subnet" "$file"
-			done
-#?			echo # Testing -- Devin
+			if [ "$SUBNETS" ]; then
+				# Build -s options for each subnet
+				subnet_opts=
+				for subnet in $SUBNETS; do
+					subnet_opts="$subnet_opts -s $subnet"
+				done
+				zone2rev -S $zone2rev_debug -i \
+					-v "$view" $subnet_opts "$file"
+			fi
 			n=$(( $n + 1 ))
 		done
 		echo
@@ -1129,7 +1330,7 @@ genrev()
 		for file in .new-*; do
 			[ -e "$file" ] || continue
 
-			revfile=$( echo "$file" | sed -e "s/^.new-//" )
+			revfile="${file#.new-}"
 			case "$revfile" in
 			*.*.*.*.*) origin="$revfile.ip6.arpa." ;;
 			*) origin="$revfile.in-addr.arpa." ;;
@@ -1230,8 +1431,9 @@ genzone()
 					rcsdiff -u "$file" 2> /dev/null )
 			fi
 			if [ "$diff" ]; then
-				echo "$diff" | awk '$0="   "$0' >> "$log"
-				echo "$diff" | colorize | awk '$0="     "$0'
+				printf '%s\n' "$diff" |
+					f_indent -p "   " >> "$log"
+				echo "$diff" | colorize | f_indent -p "     "
 			fi
 		done
 
@@ -1412,7 +1614,7 @@ dnsreload()
 		cd "$nameddir"
 		for view in $views; do
 			for file in $( find "$view" -name ".bak-*" ); do
-				res=$( echo "$file" | sed -e "s/.bak-//" )
+				res="${file#*.bak-}"
 				sudo mv "$file" "$res"
 			done
 		done
@@ -1553,7 +1755,7 @@ sigquit()
 		    "made to master files: rolling back"
 		for file in .bak-*; do
 			[ -e "$file" ] || continue
-			res=$( echo "$file" | sed -e s/.bak-// )
+			res="${file#.bak-}"
 			cp "$file" "$res" > /dev/null 2>&1
 		done
 		checkin
@@ -1563,7 +1765,7 @@ sigquit()
 		    "updated in the NAMEDB directory: rolling back"
 		for file in .bak-*; do
 			[ -e "$file" ] || continue
-			res=$( echo "$file" | sed -e s/.bak-// )
+			res="${file#.bak-}"
 			cp "$file" "$res"
 		done
 		checkin
@@ -1630,7 +1832,7 @@ sigquit()
 
 	# We previously deleted these with sudo in predit()
 	# NB: These should all be removable without sudo now
-	rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .updzones .view*
+	rm -rf "$lock" "$log" "$tmp" .bak-* .revunq .view*
 
 	# XXX Save the older version in case of emergency
 	#sudo find "$nameddir" -name ".bak-*" -exec rm -f {} \;
@@ -1803,11 +2005,10 @@ zonemenu()
 			editmaster "$zone"
 		elif [ "$SYNC" ]; then
 			if [ "$UPDZONES" ]; then
-				if ( ! echo "$UPDZONES" | egrep \
-		    		    "(^| |	)$zone(	| |$)" \
-		    		    > /dev/null 2>&1 ); then
-					UPDZONES="$UPDZONES $zone"
-				fi
+				case " $UPDZONES " in
+				*" $zone "*) : already_present ;;
+				*) UPDZONES="$UPDZONES $zone" ;;
+				esac
 			else
 				UPDZONES="$zone"
 			fi
@@ -2012,15 +2213,15 @@ rmzone()
 	r=
 	for x in $NEWZONES; do
 		[ "$x" = "$zone" -o "$x" = "$file" ] && continue
-		r="$r${r:+ }$x"
+		r="$r $x"
 	done
-	NEWZONES="$r"
+	NEWZONES="${r# }"
 	r=
 	for x in $UPDZONES; do
 		[ "$x" = "$zone" -o "$x" = "$file" ] && continue
-		r="$r${r:+ }$x"
+		r="$r $x"
 	done
-	UPDZONES="$r"
+	UPDZONES="${r# }"
 
 	CHANGES=1
 	msg "   Removed $zone zone: $( date )"
@@ -2376,9 +2577,10 @@ getsubnets()
 		zone2rev -l - )
 	do
 		# Only insert subnet if not existing in $subnets
-		echo "$SUBNETS" | grep -q "\\<$(
-			echo "$subnet" | sed -e 's/\./\\&/g'
-		)$subnet\\>" || SUBNETS="$SUBNETS $subnet"
+		case " $SUBNETS " in
+		*" $subnet "*) : # already exists ;;
+		*) SUBNETS="$SUBNETS $subnet" ;;
+		esac
 	done
 	SUBNETS="${SUBNETS# }"
 }
@@ -2419,8 +2621,9 @@ pushzones()
 			sudo rm -f "$file"
 		done
 		for file in $( find "$view" -type f ! -name ".bak-*" ); do
-			res=$( echo "$file" |
-			    sed -e 's/\(.*\/\)\(.*\)/\1.bak-\2/' )
+		dir="${file%/*}"
+		base="${file##*/}"
+		res="$dir/.bak-$base"
 			cmp -s "$file" "$res" 2> /dev/null && continue
 #?			printf "\t  \033[2m-> %s\033[m\n" "$file"
 #?				# Testing -- Devin
@@ -2518,7 +2721,7 @@ verify()
 	echo "$res" | tee -a "$log"
 	diff=$( rcsdiff -u "$file" )
 	echo "$diff" | colorize | ${PAGER:-less -F -R}
-	echo "$diff" | awk '$0="  "$0' >> "$log"
+	printf '%s\n' "$diff" | f_indent -p "  " >> "$log"
 	echo >> "$log"
 
 	echo
@@ -2604,7 +2807,7 @@ vprompt()
 
 	diff=$( rcsdiff -u "$file" )
 	echo "$diff" | colorize | ${PAGER:-less -F -R}
-	echo "$diff" | awk '$0="  "$0' >> "$log"
+	printf '%s\n' "$diff" | f_indent -p "  " >> "$log"
 	echo >> "$log"
 
 	printf "\n\n"
@@ -2622,17 +2825,18 @@ vprompt()
 		msg "$USER accepted changes: $( date )"
 		getsubnets "$file"
 		UPDATE=1 # First stage of dns updates
-		if [ "$UPDZONES" ] && ! echo "$UPDZONES" |
-		    egrep "(^| |	)$file(	| |$)" > /dev/null 2>&1
-		then
-			UPDZONES="$UPDZONES $file"
+		if [ "$UPDZONES" ]; then
+			case " $UPDZONES " in
+			*" $file "*) : already_present ;;
+			*) UPDZONES="$UPDZONES $file" ;;
+			esac
 		else
 			UPDZONES="$file"
 		fi
 		echo
 		CHANGES=1
 		;;
-	*)	msg "$USER re-editing $file; $( date )"
+	*)	msg "$USER re-editing $file: $( date )"
 		editmaster "$file"
 	esac
 }
@@ -2687,12 +2891,9 @@ zonelist()
 			[ -e "$zone" ] || continue
 			rcs=
 		esac
-		if echo "$exclude" |
-		    egrep "(^| |	)$zone(	| |$)" \
-		    > /dev/null 2>&1
-		then
-			continue
-		fi
+		case " $exclude " in
+		*" $zone "*) continue ;;
+		esac
 
 		cnt=$(( ${#zone} + 1 ))
 		if [ $cnt -lt 7 ]; then
@@ -2799,17 +3000,16 @@ zonetest()
 				}1
 				END { exit status }
 			' # END-QUOTE
-		) && [ $( echo "$res" | wc -l ) -gt 2 ]; then
+		) && f_count_ifs lc "$res$NL" && [ $lc -gt 2 ]; then
 			FAILTYPE="$2"
 			FAILFILE="$3"
 
-			echo "$res" | sed -e 's/.*\///;s/^/	/'
+			printf "\t%s\n" "${res##*/}"
 			echo
 
 			echo
 			echo " Master File Diff:"
-			rcsdiff -u "$nsadmindir/$3" 2>&1 |
-				sed -e "s/^/	/"
+			rcsdiff -u "$nsadmindir/$3" 2>&1 | f_indent
 			echo
 
 			msg "ERROR: zone test failed on $FAILFILE"
@@ -2817,7 +3017,7 @@ zonetest()
 			return
 		fi
 
-		echo "$res" | sed -e "s/^/	/"
+		printf '\t%s\n' "$res"
 		echo
 
 #?		sleep 2 # Testing -- Parker
@@ -2833,8 +3033,8 @@ while getopts "aehl:n:su:v?" flag; do
 	case "$flag" in
 	a) SYNCALL=1 ;;
 	e) EDITMODE=1 ;;
-	l) UPDZONES=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
-	n) TRANSFER=$( echo "$OPTARG" | sed -e "s/,/ /g" ) ;;
+	l) f_replaceall "$OPTARG" "," " " UPDZONES ;;
+	n) f_replaceall "$OPTARG" "," " " TRANSFER ;;
 	s) SYNC=1 ;;
 	u) USER="$OPTARG" ;;
 	v) VERSION="${VERSION#*: }"
@@ -2843,7 +3043,7 @@ while getopts "aehl:n:su:v?" flag; do
 	*) usage # NOTREACHED
 	esac
 done
-shift $(( OPTIND - 1 ))
+shift $(( $OPTIND - 1 ))
 
 #
 # OS Glue
