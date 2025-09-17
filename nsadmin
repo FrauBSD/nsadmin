@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-15 18:08:58 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-16 20:27:19 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,8 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.0.1
+# 		- Fix syntax error in case statement (remove # comment from pattern)
 # 	Sep 2025: Release 6.0
 # 		- Add f_count_ifs() and f_replaceall() from FreeBSD bsdconfig
 # 		- Add f_getword() function for shell-native word extraction
@@ -361,7 +363,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.0 $'
+VERSION='$Version: 6.0.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1804,7 +1806,7 @@ sigquit()
 		done
 		checkin
 		subj="nsadmin: $( date ): $USER"
-	fi
+		fi
 
 	# Remove unblank/new zones that were resurrected before genconf()
 	if [ "$NEWZONES" ]; then
@@ -2578,7 +2580,7 @@ getsubnets()
 	do
 		# Only insert subnet if not existing in $subnets
 		case " $SUBNETS " in
-		*" $subnet "*) : # already exists ;;
+		*" $subnet "*) : already exists ;;
 		*) SUBNETS="$SUBNETS $subnet" ;;
 		esac
 	done
