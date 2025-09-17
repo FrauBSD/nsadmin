@@ -1806,7 +1806,7 @@ sigquit()
 		done
 		checkin
 		subj="nsadmin: $( date ): $USER"
-		fi
+	fi
 
 	# Remove unblank/new zones that were resurrected before genconf()
 	if [ "$NEWZONES" ]; then
