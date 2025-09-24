@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-24 14:02:51 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-24 14:31:24 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,10 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.0.3
+# 		- Fix infinite loop in zone2rev_awk process_file function
+# 		- Simplify while loop to use getline directly in condition
+# 		- Add single version log statement at start of operations
 # 	Sep 2025: Release 6.0.2
 # 		- Fix awk variable conflicts in zone2rev_awk script
 # 		- Rename array variables to avoid scalar/array name conflicts
@@ -370,7 +374,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.0.2 $'
+VERSION='$Version: 6.0.3 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -876,15 +880,8 @@ BEGIN {
 function process_file(file,        lineno, rec, test_result) {
 	lineno = 0
 	rec = ""
-	# Test if file exists and is readable
-	test_result = (getline < file)
-	if (test_result < 0) {
-		printf "zone2rev: warning: %s: not found or not readable\n",
-			file > "/dev/stderr"
-		return
-	}
-	# Process the first line we already read, then continue with the rest
-	while (test_result > 0) {
+	# Process all lines in the file
+	while ((getline < file) > 0) {
 		lineno++
 		if (/^[[:space:]]*;/) continue
 		if ($1 ~ "^" file) continue
@@ -993,7 +990,6 @@ function process_file(file,        lineno, rec, test_result) {
 		}
 		output_files[rev] = 1
 		print ptr >> rev
-		test_result = getline < file
 	}
 }
 
@@ -3187,6 +3183,10 @@ fi
 # If there are changes to the master files, generate the zones
 #
 [ "$UPDZONES$NEWZONES$RMDZONES$MVJNL" ] || exit $SUCCESS
+# Log version for deployment tracking
+version_str="${VERSION#*: }"
+version_str="${version_str% *}"
+msg "nsadmin $version_str starting operations"
 if [ "$MVJNL" ]; then
 	# Process move journal to determine what's new/removed
 	for u in $( for move in $MVJNL; do
