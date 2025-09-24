@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-16 20:27:19 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-24 14:02:51 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,13 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.0.2
+# 		- Fix awk variable conflicts in zone2rev_awk script
+# 		- Rename array variables to avoid scalar/array name conflicts
+# 		- Change files[] array to output_files[] array
+# 		- Change subnets[] array to found_subnets[] array
+# 		- Fix NR parameter conflict by using lineno local variable
+# 		- Resolve "use of non-array as array" awk errors
 # 	Sep 2025: Release 6.0.1
 # 		- Fix syntax error in case statement (remove # comment from pattern)
 # 	Sep 2025: Release 6.0
@@ -363,7 +370,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.0.1 $'
+VERSION='$Version: 6.0.2 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -855,7 +862,8 @@ BEGIN {
 
 	nsubnets = split(tolower(subnets), subnet_array, / /)
 	delete initialized
-	delete files
+	delete output_files
+	delete found_subnets
 
 	# Process each file in the files list
 	nfiles = split(files, file_array, / /)
@@ -865,8 +873,8 @@ BEGIN {
 	exit
 }
 
-function process_file(file,        NR, rec, test_result) {
-	NR = 0
+function process_file(file,        lineno, rec, test_result) {
+	lineno = 0
 	rec = ""
 	# Test if file exists and is readable
 	test_result = (getline < file)
@@ -877,7 +885,7 @@ function process_file(file,        NR, rec, test_result) {
 	}
 	# Process the first line we already read, then continue with the rest
 	while (test_result > 0) {
-		NR++
+		lineno++
 		if (/^[[:space:]]*;/) continue
 		if ($1 ~ "^" file) continue
 		if (/;*VIEW:/ && $0 !~ view) continue
@@ -973,9 +981,9 @@ function process_file(file,        NR, rec, test_result) {
 		}
 		if (list_subnets || list_reverse) {
 			if (list_reverse)
-				subnets[rev] = 1
+				found_subnets[rev] = 1
 			else
-				subnets[net] = 1
+				found_subnets[net] = 1
 			continue
 		}
 		rev = ".new-" rev
@@ -983,7 +991,7 @@ function process_file(file,        NR, rec, test_result) {
 			printf "" > rev
 			initialized[rev] = 1
 		}
-		files[rev] = 1
+		output_files[rev] = 1
 		print ptr >> rev
 		test_result = getline < file
 	}
@@ -992,14 +1000,14 @@ function process_file(file,        NR, rec, test_result) {
 END {
 	if (verify) exit vstatus
 	if (list_subnets) {
-		n = _asorti(subnets, subnets_sorted)
+		n = _asorti(found_subnets, subnets_sorted)
 		for (i = 1; i <= n; i++) print subnets_sorted[i]
 		exit (n > 0 ? 0 : 1)
 	}
 
 	if (!debug) exit
 	fmt = console ? "\033[32m%5d\033[36m:\033[m %s\n" : "%5d: %s\n"
-	n = _asorti(files, files_sorted)
+	n = _asorti(output_files, files_sorted)
 	for (i = 1; i <= n; i++) {
 		rev = files_sorted[i]
 		if (console)
