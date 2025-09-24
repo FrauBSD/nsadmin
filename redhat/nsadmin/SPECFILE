@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 6.0.1
+Version: 6.0.2
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.2-1
+- 8879d55 Fix awk variable conflicts in zone2rev_awk script
 * Tue Sep 16 2025 Devin Teske <dteske@fraubsd.org> 6.0.1-1
 - 6e08cb7 Fix syntax error in case statement
 - b1b78ed Fix inadvertent whitespace change
