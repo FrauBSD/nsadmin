@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-24 14:31:24 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-24 16:08:10 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,10 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.0.4
+# 		- CRITICAL FIX: Restore PTR record generation for sync-all operations
+# 		- Add else clause to genrev() zone2rev call when SUBNETS is empty
+# 		- Fixes regression where PTR records were not generated during sync-all
 # 	Sep 2025: Release 6.0.3
 # 		- Fix infinite loop in zone2rev_awk process_file function
 # 		- Simplify while loop to use getline directly in condition
@@ -374,7 +378,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.0.3 $'
+VERSION='$Version: 6.0.4 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -1328,6 +1332,9 @@ genrev()
 				done
 				zone2rev -S $zone2rev_debug -i \
 					-v "$view" $subnet_opts "$file"
+			else
+				# No specific subnets - process all subnets in file
+				zone2rev -S $zone2rev_debug -i -v "$view" "$file"
 			fi
 			n=$(( $n + 1 ))
 		done
