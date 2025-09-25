@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 6.0.4
+Version: 6.0.5
 Release: 1
 Buildarch: noarch
 
@@ -78,12 +78,14 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.5-1
+- d8fd10d Fix critical PTR record format regression
 * Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.4-1
-- dc4731d Fix critical PTR generation regression
+- d0b2b7c Fix critical PTR generation regression (REVERTED)
 * Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.3-1
-- f4c644c Fix infinite loop and add version logging
+- 3e316e9 Fix infinite loop and add version logging
 * Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.2-1
-- 8879d55 Fix awk variable conflicts in zone2rev_awk script
+- 457ce9a Fix awk variable conflicts in zone2rev_awk script
 * Tue Sep 16 2025 Devin Teske <dteske@fraubsd.org> 6.0.1-1
 - 6e08cb7 Fix syntax error in case statement
 - b1b78ed Fix inadvertent whitespace change
