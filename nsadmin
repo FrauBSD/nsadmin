@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-25 12:00:34 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-25 13:38:01 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,16 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.1.1
+# 		- Replace hard-coded error filter with configurable suppression
+# 		- Add suppress_errors variable to nsadmin.conf
+# 		- Default: no error suppression (empty suppress_errors var)
+# 		- Example:
+# 		  suppress_errors="Operation not permitted|Permission denied"
+# 		- Add f_filter_errors() function for centralized error handling
+# 		- PERFORMANCE: Avoid subshells when suppress_errors is empty
+# 		- PERFORMANCE: Use variable-by-reference to eliminate subshells
+# 		- Maintain backward compatibility while allowing customization
 # 	Sep 2025: Release 6.1
 # 		- Add zone name validation, prevent invalid files
 # 		- Remove pattern matching in exclude conf variable (#*, ~*, *~)
@@ -398,7 +408,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.1 $'
+VERSION='$Version: 6.1.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -633,6 +643,28 @@ f_check_zone_exclusions()
 	return $FAILURE
 }
 
+# f_filter_errors var_name
+#
+# Filter error messages based on suppress_errors configuration.
+# Modifies the named variable in-place to avoid subshells.
+# If suppress_errors is empty, returns immediately without filtering.
+#
+f_filter_errors()
+{
+	local var_name="$1" error_output
+	
+	# Get the current value of the variable
+	eval "error_output=\$$var_name"
+	
+	# Return immediately if no error output or no suppression patterns
+	[ "$error_output" ] || return
+	[ "$suppress_errors" ] || return
+	
+	# Filter and update the variable
+	error_output=$( echo "$error_output" | grep -E -v "$suppress_errors" )
+	setvar "$var_name" "$error_output"
+}
+
 # usage
 #
 # Print the help menu and exit.
@@ -732,7 +764,7 @@ function _asorti(src, dest,        k, nitems, i, idx)
 # 		by dots) contains one or more invalid characters.
 # 	2	One or more individual octets within the IP address are null
 # 		and/or missing.
-# 	3	One or more individual octets within the IP address exceeds the
+# 		3	One or more individual octets within the IP address exceeds the
 # 		maximum of 255 (or 2^8-1, being an octet comprised of 8 bits).
 # 	4	The IP address has either too few or too many octets.
 #
@@ -2738,10 +2770,9 @@ pushzones()
 	error_output=$( find . -type f -exec \
 		sudo cp {} "$nameddir/{}" \; 2>&1 )
 	if [ "$error_output" ]; then
-		# Filter out "Permission denied" messages for immutable files
-		filtered_error=$( echo "$error_output" | 
-			grep -v "Permission denied" )
-		[ "$filtered_error" ] && echo "$filtered_error" >&2
+		# Filter error messages based on configuration
+		f_filter_errors error_output
+		[ "$error_output" ] && echo "$error_output" >&2
 	fi
 	cd - > /dev/null
 
@@ -2924,10 +2955,9 @@ vprompt()
 	[nN]|[Nn][Oo])
 		msg "$USER canceled changes: $( date )"
 		if ! error_output=$( cp ".bak-$file" "$file" 2>&1 ); then
-			# Filter out "Operation not permitted" messages
-			filtered_error=$( echo "$error_output" |
-				grep -v "Operation not permitted" )
-			[ "$filtered_error" ] && echo "$filtered_error" >&2
+			# Filter error messages based on configuration
+			f_filter_errors error_output
+			[ "$error_output" ] && echo "$error_output" >&2
 		fi
 		;;
 	[yY]|[Yy][Ee][Ss])
