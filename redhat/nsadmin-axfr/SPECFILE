@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsaxfr package for nsadmin
 License: BSD
-Version: 3.0
+Version: 3.0.1
 Release: 1
 Buildarch: noarch
 
@@ -77,6 +77,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Wed Sep 25 2025 Devin Teske <dteske@fraubsd.org> 3.0.1-1
+- 0de2216 Add configurable error suppression with performance optimization
 * Wed Sep 25 2025 Devin Teske <dteske@fraubsd.org> 3.0-1
 - f511cb7 Major performance optimization and error filtering
 * Wed Nov 18 2020 Devin Teske <dteske@fraubsd.org> 2.5.2-1
