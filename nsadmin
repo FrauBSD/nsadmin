@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-24 17:38:02 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-25 12:00:34 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,21 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.1
+# 		- Add zone name validation, prevent invalid files
+# 		- Remove pattern matching in exclude conf variable (#*, ~*, *~)
+# 		- Add zone_exclude_patterns conf variable for patterns
+# 		- Default exclusions: "*.backup* *.bak*" (can customize)
+# 		- Can customize: allows valid domains like "test.backup"
+# 		- Core validation: *[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-]
+# 		- Fix BIND failures from files like "3.2.1.backup-working"
+# 		- Prevents invalid files from causing BIND deployment failures
+# 		- Silently filter "Operation not permitted" errors
+# 		- Silently filter "Permission denied" errors
+# 		- Filter errors during rollback, local, and remote push
+# 		- Suppress "unknown format" warnings for empty files
+# 		- Preserve other error messages for actionable issues
+# 		- Fixup code whitespace and line lengths
 # 	Sep 2025: Release 6.0.5
 # 		- CRITICAL FIX: Fix PTR record format in zone2rev function
 # 		- Extract basename from file path for correct domain format
@@ -67,7 +82,7 @@
 # 		- Whitespace fixes
 # 		- Reverts broken 6.0.4 release
 # 	Sep 2025: Release 6.0.4 (REVERTED)
-# 		- Attempted fix for sync-all PTR generation (caused BIND failures)
+# 		- Attempted fix for sync-all PTR generation (BIND failures)
 # 		- Added duplicate zone2rev calls leading to file conflicts
 # 	Sep 2025: Release 6.0.3
 # 		- Fix infinite loop in zone2rev_awk process_file function
@@ -81,7 +96,7 @@
 # 		- Fix NR parameter conflict by using lineno local variable
 # 		- Resolve "use of non-array as array" awk errors
 # 	Sep 2025: Release 6.0.1
-# 		- Fix syntax error in case statement (remove # comment from pattern)
+# 		- Fix syntax error in case statement (remove # from pattern)
 # 	Sep 2025: Release 6.0
 # 		- Add f_count_ifs() and f_replaceall() from FreeBSD bsdconfig
 # 		- Add f_getword() function for shell-native word extraction
@@ -383,7 +398,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.0.5 $'
+VERSION='$Version: 6.1 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -579,6 +594,43 @@ f_indent()
 			printf "$prefix%s\n" "$line"
 		done
 	fi
+}
+
+# f_validate_zone_name zone_name
+#
+# Validate a zone name for RFC compliance.
+# Logs warning if invalid. Returns SUCCESS if valid, FAILURE if invalid.
+#
+f_validate_zone_name()
+{
+	local zone="$1"
+	
+	case "$zone" in
+	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
+		warn "Skipping invalid zone name: $zone"
+		return $FAILURE ;;
+	*)
+		return $SUCCESS ;;
+	esac
+}
+
+# f_check_zone_exclusions zone_name
+#
+# Check if a zone name matches any exclusion patterns.
+# Logs warning if excluded. Returns SUCCESS if excluded, FAILURE if allowed.
+#
+f_check_zone_exclusions()
+{
+	local zone="$1" pattern
+	
+	for pattern in $zone_exclude_patterns; do
+		case "$zone" in
+		$pattern)
+			warn "Excluded zone name: $zone (matches $pattern)"
+			return $SUCCESS ;;
+		esac
+	done
+	return $FAILURE
 }
 
 # usage
@@ -1244,7 +1296,7 @@ genmaster()
 
 	#
 	# Generate a list of subnets that need reverse DNS regeneration
-	# Note: Only include subnets from originally edited zones, not dependencies
+	# NB: Only include subnets from edited zones, not dependencies
 	#
 	for subnet in $updsubnets; do
 		# Only insert subnet if not existing in $SUBNETS
@@ -1321,6 +1373,9 @@ genrev()
 			list=
 			for zone in [a-z0-9]*; do
 				[ -f "$zone" ] || continue
+				# Validate zone name and check exclusions
+				f_validate_zone_name "$zone" || continue
+				f_check_zone_exclusions "$zone" && continue
 				list="$list $zone"
 			done
 			list="${list# }"
@@ -1346,8 +1401,9 @@ genrev()
 				zone2rev -S $zone2rev_debug -i \
 					-v "$view" $subnet_opts "$file"
 			else
-				# No specific subnets - process all subnets in file
-				zone2rev -S $zone2rev_debug -i -v "$view" "$file"
+				# No specific subnets - process all in file
+				zone2rev -S $zone2rev_debug -i \
+					-v "$view" "$file"
 			fi
 			n=$(( $n + 1 ))
 		done
@@ -1525,6 +1581,10 @@ genconf()
 			[ -e "$file" ] || continue
 #?			printf "\t  \033[2m-> %s\033[m\n" \
 #?				"$file" >&2 # Testing -- Devin
+			zone="${file##*/}"
+			# Validate zone name and check exclusions
+			f_validate_zone_name "$zone" || continue
+			f_check_zone_exclusions "$zone" && continue
 			case "$file" in
 			*.jnl) # Journal file
 				warn "$file exists"
@@ -1533,14 +1593,18 @@ genconf()
 			if filetype=$( file -b "$file" 2>&1 ); then
 				case "$filetype" in
 				*text*) : ok ;;
-				*) warn "$file unknown format"
-				   continue
+				*) # Check if it's an empty file before warning
+					if [ ! -s "$file" ]; then
+						: # Silently skip empty files
+					else
+						warn "$file unknown format"
+					fi
+					continue
 				esac
 			else
 				warn "$file unknown type ($filetype)"
 				continue
 			fi
-			zone="${file##*/}"
 			printf 'zone "%s" in {\n' "$zone"
 			printf '\ttype master;\n'
 			printf '\tfile "%s";\n' "$file"
@@ -1564,6 +1628,10 @@ genconf()
 			[ -e "$file" ] || continue
 #?			printf "\t  \033[2m-> %s\033[m\n" \
 #?				"$file" >&2 # Testing -- Devin
+			zone="${file##*/}"
+			# Validate zone name and check exclusions
+			f_validate_zone_name "$zone" || continue
+			f_check_zone_exclusions "$zone" && continue
 			case "$file" in
 			*.jnl) # Journal file
 				warn "$file exists"
@@ -1572,14 +1640,18 @@ genconf()
 			if filetype=$( file -b "$file" 2>&1 ); then
 				case "$filetype" in
 				*text*) : ok ;;
-				*) warn "$file unknown format"
-				   continue
+				*) # Check if it's an empty file before warning
+					if [ ! -s "$file" ]; then
+						: # Silently skip empty files
+					else
+						warn "$file unknown format"
+					fi
+					continue
 				esac
 			else
 				warn "$file unknown type ($filetype)"
 				continue
 			fi
-			zone="${file##*/}"
 			if grep -q "$ip4arpa" "$file"; then
 				printf 'zone "%s.in-addr.arpa" in {\n' "$zone"
 				printf '\ttype master;\n'
@@ -2663,7 +2735,14 @@ pushzones()
 	cd "$tmp"
 	sudo chown -R "$binduser:$bindgroup" *
 	sudo chmod -R g+w *
-	find . -type f -exec sudo cp {} "$nameddir/{}" \;
+	error_output=$( find . -type f -exec \
+		sudo cp {} "$nameddir/{}" \; 2>&1 )
+	if [ "$error_output" ]; then
+		# Filter out "Permission denied" messages for immutable files
+		filtered_error=$( echo "$error_output" | 
+			grep -v "Permission denied" )
+		[ "$filtered_error" ] && echo "$filtered_error" >&2
+	fi
 	cd - > /dev/null
 
 	msg "	Generating configs: $( date )"
@@ -2844,7 +2923,12 @@ vprompt()
 	case "$ans" in
 	[nN]|[Nn][Oo])
 		msg "$USER canceled changes: $( date )"
-		cp ".bak-$file" "$file" > /dev/null 2>&1
+		if ! error_output=$( cp ".bak-$file" "$file" 2>&1 ); then
+			# Filter out "Operation not permitted" messages
+			filtered_error=$( echo "$error_output" |
+				grep -v "Operation not permitted" )
+			[ "$filtered_error" ] && echo "$filtered_error" >&2
+		fi
 		;;
 	[yY]|[Yy][Ee][Ss])
 		echo
@@ -3143,7 +3227,10 @@ cd "$nsadmindir" || exit
 if [ "$SYNCALL" ]; then
 	for file in *; do
 		[ -e "$file" ] || continue
-		skip=
+		# Validate zone name and check exclusions
+		f_validate_zone_name "$file" || continue
+		f_check_zone_exclusions "$file" && continue
+		# Filter out literal exclusions
 		for excl in $exclude; do
 			[ "$file" = "$excl" ] || continue
 			skip=1
