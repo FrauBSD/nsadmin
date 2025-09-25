@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsaxfr,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsaxfr 2025-09-25 12:14:40 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsaxfr 2025-09-25 13:47:50 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -44,6 +44,14 @@
 # 	- User `cm' needs `sudo /usr/local/bin/nsaxfr' without password
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 3.0.1
+# 		- Replace hard-coded error filter with configurable suppression
+# 		- Add suppress_errors variable to nsaxfr.conf for customization
+# 		- Default: no error suppression (empty suppress_errors var)
+# 		- Example:
+# 		  suppress_errors="Operation not permitted|Permission denied"
+# 		- Add f_filter_errors() function for centralized error handling
+# 		- Maintain backward compatibility while allowing customization
 # 	Sep 2025: Release 3.0
 # 		- PERFORMANCE: Optimize backup from O(N^2) to O(N) complexity
 # 		- Replace sed subprocess calls with shell parameter expansion
@@ -82,7 +90,7 @@ NSAXFR_CONF=nsaxfr.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 3.0 $'
+VERSION='$Version: 3.0.1 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -175,6 +183,30 @@ esac
 . "$NSAXFR_CONF" || exit
 
 #
+# f_filter_errors var_name
+#
+# Filter error messages based on suppress_errors configuration.
+# Modifies the named variable in-place to avoid subshells.
+# If suppress_errors is empty, returns immediately without filtering.
+#
+f_filter_errors()
+{
+	local var_name="$1" error_output
+	
+	# Get the current value of the variable
+	eval "error_output=\$$var_name"
+	
+	# Return immediately if no error output or no suppression patterns
+	[ "$error_output" ] || return
+	[ "$suppress_errors" ] || return
+	
+	# Filter and update the variable
+	error_output=$( echo "$error_output" | grep -E -v "$suppress_errors" )
+	# Use simple assignment since nsaxfr doesn't have setvar
+	eval "$var_name=\"\$error_output\""
+}
+
+#
 # Setup
 #
 umask 0022
@@ -209,7 +241,8 @@ for view in $views; do
 		dir="${file%/*}"
 		base="${file##*/}"
 		res="$dir/.bak-$base"
-		[ -e "$nameddir/$file" ] && cp "$nameddir/$file" "$nameddir/$res"
+		[ -e "$nameddir/$file" ] &&
+			cp "$nameddir/$file" "$nameddir/$res"
 	done
 done
 
@@ -219,12 +252,12 @@ done
 msg "Moving files to $nameddir: $( date )"
 for view in $views; do
 	find "$view" -type d -exec mkdir -p "$nameddir/{}" \;
-	error_output=$( find "$view" -type f -exec mv {} "$nameddir/{}" \; 2>&1 )
+	error_output=$( find "$view" -type f -exec \
+		mv {} "$nameddir/{}" \; 2>&1 )
 	if [ "$error_output" ]; then
-		# Filter out "Operation not permitted" messages for immutable files
-		filtered_error=$( echo "$error_output" | 
-			grep -v "Operation not permitted" )
-		[ "$filtered_error" ] && echo "$filtered_error" >&2
+		# Filter error messages based on configuration
+		f_filter_errors error_output
+		[ "$error_output" ] && echo "$error_output" >&2
 	fi
 done
 
@@ -264,9 +297,9 @@ if ! pgrep named > /dev/null; then
 			# Use parameter expansion instead of sed for speed  
 			res="${file/.bak-/}"
 			if ! error_output=$( mv "$file" "$res" 2>&1 ); then
-				# Filter out "Operation not permitted" messages
-				filtered_error=$( echo "$error_output" | grep -v "Operation not permitted" )
-				[ "$filtered_error" ] && echo "$filtered_error" >&2
+				# Filter error messages based on configuration
+				f_filter_errors error_output
+				[ "$error_output" ] && echo "$error_output" >&2
 			fi
 		done
 	done
