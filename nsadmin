@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-24 16:08:10 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-24 17:38:02 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,10 +60,15 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
-# 	Sep 2025: Release 6.0.4
-# 		- CRITICAL FIX: Restore PTR record generation for sync-all operations
-# 		- Add else clause to genrev() zone2rev call when SUBNETS is empty
-# 		- Fixes regression where PTR records were not generated during sync-all
+# 	Sep 2025: Release 6.0.5
+# 		- CRITICAL FIX: Fix PTR record format in zone2rev function
+# 		- Extract basename from file path for correct domain format
+# 		- Add missing options (-h, -u, -v) to usage documentation
+# 		- Whitespace fixes
+# 		- Reverts broken 6.0.4 release
+# 	Sep 2025: Release 6.0.4 (REVERTED)
+# 		- Attempted fix for sync-all PTR generation (caused BIND failures)
+# 		- Added duplicate zone2rev calls leading to file conflicts
 # 	Sep 2025: Release 6.0.3
 # 		- Fix infinite loop in zone2rev_awk process_file function
 # 		- Simplify while loop to use getline directly in condition
@@ -378,7 +383,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.0.4 $'
+VERSION='$Version: 6.0.5 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -606,6 +611,11 @@ usage()
 	echo "		-a			Sync all master files."
 	echo "		-l <file>[,<file>]	Sync list of files."
 	echo "		-n <host>[,<host>]	Override transfer hosts."
+	echo
+	echo "    Other Options:"
+	echo "		-h           Show this help message."
+	echo "		-u <user>    Specify user for audit logging."
+	echo "		-v           Show version information."
 	echo
 
 	exit $FAILURE
@@ -884,6 +894,9 @@ BEGIN {
 function process_file(file,        lineno, rec, test_result) {
 	lineno = 0
 	rec = ""
+	# Extract basename from file path for PTR records
+	fname = file
+	gsub(".*/", "", fname)
 	# Process all lines in the file
 	while ((getline < file) > 0) {
 		lineno++
@@ -932,7 +945,7 @@ function process_file(file,        lineno, rec, test_result) {
 			rev = sprintf("%u.%u.%u", oct[3], oct[2], oct[1])
 			ptr = sprintf("%u\t\t\t\t\tPTR\t%s%s%s.",
 				oct[4], rec == "@" ? "" : rec,
-				rec ~ /^@?$/ ? "" : ".", file)
+				rec ~ /^@?$/ ? "" : ".", fname)
 		} else if (type == "AAAA") {
 			if ((errno = validate_ipaddr6(ip)) != 0) {
 				err(sprintf("bad AAAA record `%s' for `%s' " \
@@ -976,7 +989,7 @@ function process_file(file,        lineno, rec, test_result) {
 				nib[24], nib[23], nib[22], nib[21],
 				nib[20], nib[19], nib[18], nib[17],
 				rec == "@" ? "" : rec,
-				rec ~ /^@?$/ ? "" : ".", file)
+				rec ~ /^@?$/ ? "" : ".", fname)
 		} else {
 			continue
 		}
@@ -3160,13 +3173,13 @@ LESSSECURE=1 # Disable edit functions
 #
 pids=
 for pid in $( pgrep -f "/bin/(ba)?sh $0([[:space:]]|$)" 2> /dev/null ); do
-        case "$pid" in $$|$PPID) continue; esac
-        ps -p $pid > /dev/null 2>&1 || continue
-        pids="$pids $pid"
+	case "$pid" in $$|$PPID) continue; esac
+	ps -p $pid > /dev/null 2>&1 || continue
+	pids="$pids $pid"
 done
 if [ "$pids" ]; then
-        echo "Already running:" $pids
-        exit $FAILURE
+	echo "Already running:" $pids
+	exit $FAILURE
 fi
 
 #
