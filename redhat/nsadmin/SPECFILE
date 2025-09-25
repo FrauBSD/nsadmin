@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 6.0.5
+Version: 6.1
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Wed Sep 25 2025 Devin Teske <dteske@fraubsd.org> 6.1-1
+- d658c21 Comprehensive zone validation and error filtering
 * Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.5-1
 - d8fd10d Fix critical PTR record format regression
 * Tue Sep 24 2025 Devin Teske <dteske@fraubsd.org> 6.0.4-1
