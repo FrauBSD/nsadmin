@@ -11,7 +11,7 @@
 	"comment":"nsaxfr software for nsadmin",
 	"licenselogic":"single",
 	"licenses":["BSD"],
-	"version":"3.0",
+	"version":"3.0.1",
 
 	"maintainer":"dteske@freebsd.org",
 	"www":"https://www.fraubsd.org/nsadmin",
@@ -67,6 +67,6 @@ WWW: https://www.fraubsd.org/nsadmin",
 ////////////////////////////////////////////////////////////////////////////////
 //
 // $Copyright: 2016-2025 Devin Teske. All rights reserved. $
-// $FrauBSD: nsadmin/freebsd/nsadmin-axfr/MANIFEST 2025-09-25 12:17:36 -0700 freebsdfrau $
+// $FrauBSD: nsadmin/freebsd/nsadmin-axfr/MANIFEST 2025-09-25 13:51:38 -0700 freebsdfrau $
 //
 ////////////////////////////////////////////////////////////////////////////////
