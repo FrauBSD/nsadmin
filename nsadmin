@@ -29,8 +29,8 @@
 #
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
-# $Copyright: 2017-2022 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-25 17:38:51 -0700 freebsdfrau $
+# $Copyright: 2017-2025 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsadmin 2025-09-25 19:03:49 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,14 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.1.3
+# 		- CRITICAL FIX: Fix PTR record generation regression
+# 		- Replace regex matching with literal string prefix matching
+# 		- Use substr() and length() instead of regex ~ operator
+# 		- Fixes false matches by dots in zone names (regex wildcards)
+# 		- Change zone2rev awk script to use fname instead of file path
+# 		- Bug introduced during 6.0 refactoring when zone2rev was
+# 		  changed to accept multiple files
 # 	Sep 2025: Release 6.1.2
 # 		- Fix -a (sync-all) 6.1 regression causing interactive mode
 # 		- Reset skip variable in -a loop to prevent sticky exclusions
@@ -413,7 +421,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.1.2 $'
+VERSION='$Version: 6.1.3 $'
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -713,9 +721,9 @@ usage()
 ############################################################ REV FUNCTIONS
 # Functions for generating rev maps from master zones
 
-# zone2rev [-cdilv] $file
+# zone2rev [-cdilv] file ...
 #
-# Read nsadmin zone $file and produce rev map.
+# Read nsadmin zone files and produce rev maps.
 #
 # Options:
 # 	-c          Enable ANSI color. Implies `-d'
@@ -980,17 +988,19 @@ BEGIN {
 	exit
 }
 
-function process_file(file,        lineno, rec, test_result) {
+function process_file(file,        lineno, rec, test_result, fname_len) {
 	lineno = 0
 	rec = ""
 	# Extract basename from file path for PTR records
 	fname = file
 	gsub(".*/", "", fname)
+	fname_len = length(fname)
 	# Process all lines in the file
 	while ((getline < file) > 0) {
 		lineno++
 		if (/^[[:space:]]*;/) continue
-		if ($1 ~ "^" file) continue
+		if (length($1) >= fname_len &&
+			substr($1, 1, fname_len) == fname) continue
 		if (/;*VIEW:/ && $0 !~ view) continue
 		if (/\*/) continue
 		gsub(/;.*/, "")
