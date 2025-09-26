@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2025 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-25 19:03:49 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-26 01:33:52 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,19 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.1.4
+# 		- CRITICAL FIX: Fix PTR record initialization bug in genrev()
+# 		- Only use -i (initialize) flag on first file, not all files
+# 		- Prevent subsequent files from wiping out previous PTR records
+# 		- Fixes catastrophic PTR loss introduced in 6.0 optimization
+# 		- PERFORMANCE: Replace f_filter_errors with f_suppress_errors
+# 		- Eliminate overhead from error suppression (O(n) -> O(1))
+# 		- Use single awk process instead of multiple grep calls
+# 		- Add streaming error suppression with immediate fflush()
+# 		- Dramatic performance improvement for error-heavy operations
+# 		- Zero overhead when suppress_errors is empty (common case)
+# 		- Whitespace fixes
+# 		- Add version to more places in logged output
 # 	Sep 2025: Release 6.1.3
 # 		- CRITICAL FIX: Fix PTR record generation regression
 # 		- Replace regex matching with literal string prefix matching
@@ -421,7 +434,9 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.1.3 $'
+VERSION='$Version: 6.1.4 $'
+_VERSION="${VERSION#*: }"	# Extract clean version string
+_VERSION="${_VERSION% *}"	# Remove trailing RCS marker
 
 pgm="${0##*/}" # Program basename
 progdir="${0%/*}" # Program directory
@@ -627,7 +642,7 @@ f_indent()
 f_validate_zone_name()
 {
 	local zone="$1"
-	
+
 	case "$zone" in
 	*[!0-9a-zA-Z.-]*|..|.|[.-]*|*[.-])
 		warn "Skipping invalid zone name: $zone"
@@ -645,7 +660,7 @@ f_validate_zone_name()
 f_check_zone_exclusions()
 {
 	local zone="$1" pattern
-	
+
 	for pattern in $zone_exclude_patterns; do
 		case "$zone" in
 		$pattern)
@@ -656,26 +671,53 @@ f_check_zone_exclusions()
 	return $FAILURE
 }
 
-# f_filter_errors var_name
+# f_suppress_errors [-c] [command [args ...]]
 #
-# Filter error messages based on suppress_errors configuration.
-# Modifies the named variable in-place to avoid subshells.
-# If suppress_errors is empty, returns immediately without filtering.
+# High-performance error suppression using awk for real-time filtering.
+# Filters stderr/stdout based on suppress_errors configuration patterns.
 #
-f_filter_errors()
+# USAGE:
+#   f_suppress_errors < input_stream           # Filter stdin
+#   command 2>&1 | f_suppress_errors           # Filter command output
+#   f_suppress_errors -c command [args ...]    # Execute command w/ filtering
+#
+# The -c flag executes the command and filters its combined stdout/stderr,
+# while preserving the original command's exit status.
+#
+# PERFORMANCE: Uses single awk process instead of multiple grep subprocesses
+# for dramatic performance improvement with large error volumes.
+#
+exec 9<<'EOF'
+BEGIN { exit_status = 0 }
+/^EXIT:[0-9]+$/ { exit_status = substr($0, 6) }
+{ # Check if line matches any suppression pattern
+	if ($0 ~ suppress_errors) { # Suppress this line (don't print)
+		next
+	} else { # Print line and immediately flush for responsiveness
+		print
+		fflush()
+	}
+}
+END { exit exit_status }
+EOF
+f_suppress_errors_awk=$( cat <&9 )
+f_suppress_errors()
 {
-	local var_name="$1" error_output
-	
-	# Get the current value of the variable
-	eval "error_output=\$$var_name"
-	
-	# Return immediately if no error output or no suppression patterns
-	[ "$error_output" ] || return
-	[ "$suppress_errors" ] || return
-	
-	# Filter and update the variable
-	error_output=$( echo "$error_output" | grep -E -v "$suppress_errors" )
-	setvar "$var_name" "$error_output"
+	if [ "$1" = "-c" ]; then
+		shift 1 # -c
+		if [ ! "$suppress_errors" ]; then
+			"$@"
+			return
+		fi
+		{ "$@" 2>&1; echo EXIT:$?; } |
+			awk -v suppress_errors="$suppress_errors" \
+				"$f_suppress_errors_awk"
+	elif [ ! "$suppress_errors" ]; then
+		cat
+	else
+		awk -v suppress_errors="$suppress_errors" \
+			"$f_suppress_errors_awk"
+	fi
 }
 
 # usage
@@ -1397,6 +1439,7 @@ genrev()
 {
 	local excl
 	local file
+	local initialize_flag
 	local list
 	local n
 	local origin
@@ -1439,17 +1482,27 @@ genrev()
 		for file in $list; do
 			printf "  \033[2m%-30s \033[1m%4u/%-4u\033[m\n" \
 				"[$file]" $n $t
+
+			#
+			# NB: Only initialize (-i) on the first file to
+			#     avoid wiping out previous PTR records
+			#
+			initialize_flag=
+			if [ $n -eq 1 ]; then
+				initialize_flag=-i
+			fi
+
 			if [ "$SUBNETS" ]; then
 				# Build -s options for each subnet
 				subnet_opts=
 				for subnet in $SUBNETS; do
 					subnet_opts="$subnet_opts -s $subnet"
 				done
-				zone2rev -S $zone2rev_debug -i \
+				zone2rev -S $zone2rev_debug $initialize_flag \
 					-v "$view" $subnet_opts "$file"
 			else
 				# No specific subnets - process all in file
-				zone2rev -S $zone2rev_debug -i \
+				zone2rev -S $zone2rev_debug $initialize_flag \
 					-v "$view" "$file"
 			fi
 			n=$(( $n + 1 ))
@@ -1737,6 +1790,7 @@ dnsreload()
 
 #?	clear # Testing -- Parker
 	sep "# nsadmin: Local Bind Reload"
+	msg "nsadmin $_VERSION"
 	msg "Reloading Bind: $( date )"
 
 	echo
@@ -2744,6 +2798,7 @@ pushzones()
 
 #?	clear # Testing -- Parker
 	sep "# nsadmin: Zone Push"
+	msg "nsadmin $_VERSION"
 	msg " Executing local Push:"
 
 	msg "	Backing up previous versions: $( date )"
@@ -2782,13 +2837,7 @@ pushzones()
 	cd "$tmp"
 	sudo chown -R "$binduser:$bindgroup" *
 	sudo chmod -R g+w *
-	error_output=$( find . -type f -exec \
-		sudo cp {} "$nameddir/{}" \; 2>&1 )
-	if [ "$error_output" ]; then
-		# Filter error messages based on configuration
-		f_filter_errors error_output
-		[ "$error_output" ] && echo "$error_output" >&2
-	fi
+	f_suppress_errors -c find . -type f -exec sudo cp {} "$nameddir/{}" \;
 	cd - > /dev/null
 
 	msg "	Generating configs: $( date )"
@@ -2809,6 +2858,7 @@ pushzones()
 	for host in $TRANSFER; do
 #?		clear # Testing -- Parker
 		sep "# nsadmin: Zone Push"
+		msg "nsadmin $_VERSION"
 		msg " Executing remote push to $host: $( date )"
 
 		msg "	Copying zone tarball to $host: $( date )"
@@ -2969,11 +3019,7 @@ vprompt()
 	case "$ans" in
 	[nN]|[Nn][Oo])
 		msg "$USER canceled changes: $( date )"
-		if ! error_output=$( cp ".bak-$file" "$file" 2>&1 ); then
-			# Filter error messages based on configuration
-			f_filter_errors error_output
-			[ "$error_output" ] && echo "$error_output" >&2
-		fi
+		f_suppress_errors -c cp ".bak-$file" "$file"
 		;;
 	[yY]|[Yy][Ee][Ss])
 		echo
@@ -3192,8 +3238,7 @@ while getopts "aehl:n:su:v?" flag; do
 	n) f_replaceall "$OPTARG" "," " " TRANSFER ;;
 	s) SYNC=1 ;;
 	u) USER="$OPTARG" ;;
-	v) VERSION="${VERSION#*: }"
-		echo "${VERSION% $}"
+	v) echo "$_VERSION"
 		exit $SUCCESS ;;
 	*) usage # NOTREACHED
 	esac
@@ -3337,9 +3382,7 @@ fi
 #
 [ "$UPDZONES$NEWZONES$RMDZONES$MVJNL" ] || exit $SUCCESS
 # Log version for deployment tracking
-version_str="${VERSION#*: }"
-version_str="${version_str% *}"
-msg "nsadmin $version_str starting operations"
+msg "nsadmin $_VERSION starting operations"
 if [ "$MVJNL" ]; then
 	# Process move journal to determine what's new/removed
 	for u in $( for move in $MVJNL; do
