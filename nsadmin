@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 administration and management tool $
 # $Id: nsadmin,v 1.1 2012/05/09 21:39:43 root Exp $
 # $Copyright: 2017-2025 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsadmin 2025-09-26 01:33:52 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsadmin 2025-09-26 02:02:39 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -60,6 +60,9 @@
 # 	  Without password on the secondary Bind servers.
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 6.1.5
+# 		- Fix EXIT: line processing in batch error suppression awk
+# 		- Add missing 'next' to prevent EXIT: lines from appearing
 # 	Sep 2025: Release 6.1.4
 # 		- CRITICAL FIX: Fix PTR record initialization bug in genrev()
 # 		- Only use -i (initialize) flag on first file, not all files
@@ -434,7 +437,7 @@ NSADMIN_CONF=nsadmin.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 6.1.4 $'
+VERSION='$Version: 6.1.5 $'
 _VERSION="${VERSION#*: }"	# Extract clean version string
 _VERSION="${_VERSION% *}"	# Remove trailing RCS marker
 
@@ -689,7 +692,7 @@ f_check_zone_exclusions()
 #
 exec 9<<'EOF'
 BEGIN { exit_status = 0 }
-/^EXIT:[0-9]+$/ { exit_status = substr($0, 6) }
+/^EXIT:[0-9]+$/ { exit_status = substr($0, 6); next }
 { # Check if line matches any suppression pattern
 	if ($0 ~ suppress_errors) { # Suppress this line (don't print)
 		next
