@@ -30,7 +30,7 @@
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsaxfr,v 1.3 2012/05/10 01:15:04 root Exp root $
 # $Copyright: 2017-2025 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsaxfr 2025-09-26 01:41:20 -0700 freebsdfrau $
+# $FrauBSD: nsadmin/nsaxfr 2025-09-26 02:05:41 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -44,6 +44,10 @@
 # 	- User `cm' needs `sudo /usr/local/bin/nsaxfr' without password
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 3.0.3
+# 		- Fix remaining f_filter_errors calls missed in 3.0.2
+# 		- Add missing 'next' to EXIT: line processing in awk script
+# 		- Complete migration to f_suppress_errors implementation
 # 	Sep 2025: Release 3.0.2
 # 		- PERFORMANCE: Replace f_filter_errors with f_suppress_errors
 # 		- Eliminate overhead from error suppression (O(n) -> O(1))
@@ -98,7 +102,7 @@ NSAXFR_CONF=nsaxfr.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 3.0.2 $'
+VERSION='$Version: 3.0.3 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -161,36 +165,6 @@ sigquit()
 	rm -rf *
 }
 
-############################################################ MAIN
-
-#
-# Process command-line options
-#
-while getopts "hv?" flag; do
-	case "$flag" in
-	v) VERSION="${VERSION#*: }"
-		echo "${VERSION% $}"
-		exit $SUCCESS ;;
-	*) usage # NOTREACHED
-	esac
-done
-shift $(( $OPTIND - 1 ))
-
-#
-# OS Glue
-#
-have systemctl && SYSTEMD=1
-case "$UNAME_s" in
-*BSD*) NSAXFR_CONF="/usr/local/etc/$NSAXFR_CONF" ;;
-*) NSAXFR_CONF="/etc/$NSAXFR_CONF"
-esac
-
-#
-# Load config
-#
-. "$NSAXFR_CONF" || exit
-
-#
 # f_suppress_errors [-c] [command args...]
 #
 # High-performance batch error suppression using single awk process.
@@ -204,7 +178,7 @@ esac
 #
 exec 9<<'EOF'
 BEGIN { exit_status = 0 }
-/^EXIT:[0-9]+$/ { exit_status = substr($0, 6) }
+/^EXIT:[0-9]+$/ { exit_status = substr($0, 6); next }
 { # Check if line matches any suppression pattern
 	if ($0 ~ suppress_errors) { # Suppress this line (don't print)
 		next
@@ -234,6 +208,35 @@ f_suppress_errors()
 			"$f_suppress_errors_awk"
 	fi
 }
+
+############################################################ MAIN
+
+#
+# Process command-line options
+#
+while getopts "hv?" flag; do
+	case "$flag" in
+	v) VERSION="${VERSION#*: }"
+		echo "${VERSION% $}"
+		exit $SUCCESS ;;
+	*) usage # NOTREACHED
+	esac
+done
+shift $(( $OPTIND - 1 ))
+
+#
+# OS Glue
+#
+have systemctl && SYSTEMD=1
+case "$UNAME_s" in
+*BSD*) NSAXFR_CONF="/usr/local/etc/$NSAXFR_CONF" ;;
+*) NSAXFR_CONF="/etc/$NSAXFR_CONF"
+esac
+
+#
+# Load config
+#
+. "$NSAXFR_CONF" || exit
 
 #
 # Setup
@@ -281,13 +284,8 @@ done
 msg "Moving files to $nameddir: $( date )"
 for view in $views; do
 	find "$view" -type d -exec mkdir -p "$nameddir/{}" \;
-	error_output=$( find "$view" -type f -exec \
-		mv {} "$nameddir/{}" \; 2>&1 )
-	if [ "$error_output" ]; then
-		# Filter error messages based on configuration
-		f_filter_errors error_output
-		[ "$error_output" ] && echo "$error_output" >&2
-	fi
+	f_suppress_errors -c \
+		find "$view" -type f -exec mv {} "$nameddir/{}" \;
 done
 
 #
@@ -325,11 +323,7 @@ if ! pgrep named > /dev/null; then
 		find "$view" -name ".bak-*" | while IFS= read -r file; do
 			# Use parameter expansion instead of sed for speed
 			res="${file/.bak-/}"
-			if ! error_output=$( mv "$file" "$res" 2>&1 ); then
-				# Filter error messages based on configuration
-				f_filter_errors error_output
-				[ "$error_output" ] && echo "$error_output" >&2
-			fi
+			f_suppress_errors -c mv "$file" "$res"
 		done
 	done
 	cd - > /dev/null
