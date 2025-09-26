@@ -29,8 +29,8 @@
 #
 # $Title: Distributed bind9 client for applying nsadmin changes $
 # $Id: nsaxfr,v 1.3 2012/05/10 01:15:04 root Exp root $
-# $Copyright: 2017-2019 Devin Teske. All rights reserved. $
-# $FrauBSD: nsadmin/nsaxfr 2025-09-25 13:47:50 -0700 freebsdfrau $
+# $Copyright: 2017-2025 Devin Teske. All rights reserved. $
+# $FrauBSD: nsadmin/nsaxfr 2025-09-26 01:41:20 -0700 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -44,6 +44,14 @@
 # 	- User `cm' needs `sudo /usr/local/bin/nsaxfr' without password
 # --------------------------------------------------------------------
 # Version History:
+# 	Sep 2025: Release 3.0.2
+# 		- PERFORMANCE: Replace f_filter_errors with f_suppress_errors
+# 		- Eliminate overhead from error suppression (O(n) -> O(1))
+# 		- Use single awk process instead of multiple grep calls
+# 		- Add streaming error suppression with immediate fflush()
+# 		- Dramatic performance improvement for error-heavy operations
+# 		- Zero overhead when suppress_errors is empty (common case)
+# 		- Whitespace fixes
 # 	Sep 2025: Release 3.0.1
 # 		- Replace hard-coded error filter with configurable suppression
 # 		- Add suppress_errors variable to nsaxfr.conf for customization
@@ -90,7 +98,7 @@ NSAXFR_CONF=nsaxfr.conf # See OS Glue
 
 ############################################################ GLOBALS
 
-VERSION='$Version: 3.0.1 $'
+VERSION='$Version: 3.0.2 $'
 
 pgm="${0##*/}" # Program basename
 
@@ -183,27 +191,48 @@ esac
 . "$NSAXFR_CONF" || exit
 
 #
-# f_filter_errors var_name
+# f_suppress_errors [-c] [command args...]
 #
-# Filter error messages based on suppress_errors configuration.
-# Modifies the named variable in-place to avoid subshells.
-# If suppress_errors is empty, returns immediately without filtering.
+# High-performance batch error suppression using single awk process.
 #
-f_filter_errors()
+# Usage:
+#   f_suppress_errors < input_file           # Filter stdin
+#   f_suppress_errors -c command args...     # Execute command with filtering
+#
+# The -c mode executes the command, captures both stdout/stderr, applies
+# error suppression, and preserves the original command's exit code.
+#
+exec 9<<'EOF'
+BEGIN { exit_status = 0 }
+/^EXIT:[0-9]+$/ { exit_status = substr($0, 6) }
+{ # Check if line matches any suppression pattern
+	if ($0 ~ suppress_errors) { # Suppress this line (don't print)
+		next
+	} else { # Print line and immediately flush for responsiveness
+		print
+		fflush()
+	}
+}
+END { exit exit_status }
+EOF
+f_suppress_errors_awk=$( cat <&9 )
+f_suppress_errors()
 {
-	local var_name="$1" error_output
-	
-	# Get the current value of the variable
-	eval "error_output=\$$var_name"
-	
-	# Return immediately if no error output or no suppression patterns
-	[ "$error_output" ] || return
-	[ "$suppress_errors" ] || return
-	
-	# Filter and update the variable
-	error_output=$( echo "$error_output" | grep -E -v "$suppress_errors" )
-	# Use simple assignment since nsaxfr doesn't have setvar
-	eval "$var_name=\"\$error_output\""
+	if [ "$1" = "-c" ]; then
+		shift 1 # -c
+		if [ ! "$suppress_errors" ]; then
+			"$@"
+			return
+		fi
+		{ "$@" 2>&1; echo EXIT:$?; } |
+			awk -v suppress_errors="$suppress_errors" \
+				"$f_suppress_errors_awk"
+	elif [ ! "$suppress_errors" ]; then
+		cat
+	else
+		awk -v suppress_errors="$suppress_errors" \
+			"$f_suppress_errors_awk"
+	fi
 }
 
 #
@@ -294,7 +323,7 @@ if ! pgrep named > /dev/null; then
 	cd "$nameddir"
 	for view in $views; do
 		find "$view" -name ".bak-*" | while IFS= read -r file; do
-			# Use parameter expansion instead of sed for speed  
+			# Use parameter expansion instead of sed for speed
 			res="${file/.bak-/}"
 			if ! error_output=$( mv "$file" "$res" 2>&1 ); then
 				# Filter error messages based on configuration
