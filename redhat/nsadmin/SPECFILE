@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 6.1.3
+Version: 6.1.4
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Sep 26 2025 Devin Teske <dteske@fraubsd.org> 6.1.4-1
+- 1c14a6f CRITICAL FIX for catastrophic PTR record loss and performance optimizations
 * Wed Sep 25 2025 Devin Teske <dteske@fraubsd.org> 6.1.3-1
 - c5c6ae0 CRITICAL FIX for PTR record generation regression
 * Wed Sep 25 2025 Devin Teske <dteske@fraubsd.org> 6.1.2-1
