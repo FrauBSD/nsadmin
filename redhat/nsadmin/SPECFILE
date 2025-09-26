@@ -9,7 +9,7 @@ Group: Applications/FrauBSD
 
 Summary: nsadmin
 License: BSD
-Version: 6.1.4
+Version: 6.1.5
 Release: 1
 Buildarch: noarch
 
@@ -78,6 +78,8 @@ WWW: https://www.fraubsd.org/nsadmin
 
 
 %changelog
+* Thu Sep 26 2025 Devin Teske <dteske@fraubsd.org> 6.1.5-1
+- 963aae6 Fix EXIT: line processing in batch error suppression
 * Thu Sep 26 2025 Devin Teske <dteske@fraubsd.org> 6.1.4-1
 - 1c14a6f CRITICAL FIX for catastrophic PTR record loss and performance optimizations
 * Wed Sep 25 2025 Devin Teske <dteske@fraubsd.org> 6.1.3-1
